@@ -17,7 +17,7 @@ interface Props {
   }>;
 }
 
-const { postcard, category, index, total, allPostcards } = Astro.props;
+const { postcard, category, index, total } = Astro.props;
 // Include base path for images (needed for both dev and production with base path)
 const base = import.meta.env.BASE_URL;
 // Ensure proper path joining (BASE_URL ends with /, so we need to handle it)
@@ -59,9 +59,9 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     
     // Sync back image height with front image for each postcard
     containers.forEach(container => {
-      const frontImg = container.querySelector('.front-image');
-      const backDiv = container.querySelector('.postcard-back');
-      const backImg = container.querySelector('.back-image');
+      const frontImg = container.querySelector('.front-image') as HTMLImageElement | null;
+      const backDiv = container.querySelector('.postcard-back') as HTMLElement | null;
+      const backImg = container.querySelector('.back-image') as HTMLImageElement | null;
       
       if (frontImg && backDiv && backImg) {
         // Set back container height to match front image when loaded
@@ -85,7 +85,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
         }
         
         // Also sync on window resize
-        let resizeTimeout;
+        let resizeTimeout: ReturnType<typeof setTimeout>;
         window.addEventListener('resize', () => {
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(syncHeights, 100);
@@ -94,8 +94,8 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
       
       // Click handler for lightbox
       container.addEventListener('click', () => {
-        const frontImgEl = container.querySelector('.front-image');
-        const backImgEl = container.querySelector('.back-image');
+        const frontImgEl = container.querySelector('.front-image') as HTMLImageElement | null;
+        const backImgEl = container.querySelector('.back-image') as HTMLImageElement | null;
         if (!frontImgEl || !backImgEl) return;
         
         // Get postcard data from data attributes
@@ -137,12 +137,13 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           document.body.appendChild(lightbox);
           
           // Store navigation data
-          (lightbox as any).currentIndex = currentIndex;
-          (lightbox as any).totalPostcards = totalPostcards;
-          (lightbox as any).categoryName = categoryName;
+          const lb = lightbox as HTMLElement & { currentIndex?: number; totalPostcards?: number; categoryName?: string };
+          lb.currentIndex = currentIndex;
+          lb.totalPostcards = totalPostcards;
+          lb.categoryName = categoryName;
           
           // Add event listeners
-          const closeBtn = lightbox.querySelector('#lightbox-close');
+          const closeBtn = lightbox.querySelector('#lightbox-close') as HTMLElement | null;
           if (closeBtn) {
             closeBtn.addEventListener('click', () => {
               if (lightbox) {
@@ -152,13 +153,13 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
             });
           }
           
-          const prevBtn = lightbox.querySelector('#lightbox-prev');
-          const nextBtn = lightbox.querySelector('#lightbox-next');
+          const prevBtn = lightbox.querySelector('#lightbox-prev') as HTMLElement | null;
+          const nextBtn = lightbox.querySelector('#lightbox-next') as HTMLElement | null;
           
           // Navigation function
           const navigatePostcard = (direction: number) => {
-            const lb = document.getElementById('lightbox') as any;
-            if (!lb) return;
+            const lb = document.getElementById('lightbox') as HTMLElement & { currentIndex?: number; totalPostcards?: number; categoryName?: string };
+            if (!lb || lb.currentIndex === undefined || lb.totalPostcards === undefined) return;
             
             const newIndex = lb.currentIndex + direction;
             if (newIndex < 0 || newIndex >= lb.totalPostcards) return;
@@ -168,19 +169,18 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
             const targetContainer = allContainers[newIndex] as HTMLElement;
             if (!targetContainer) return;
             
-            const frontImg = targetContainer.querySelector('.front-image');
-            const backImg = targetContainer.querySelector('.back-image');
+            const frontImg = targetContainer.querySelector('.front-image') as HTMLImageElement | null;
+            const backImg = targetContainer.querySelector('.back-image') as HTMLImageElement | null;
             if (!frontImg || !backImg) return;
             
             const newFrontPath = frontImg.getAttribute('src') || '';
             const newBackPath = backImg.getAttribute('src') || '';
-            const newName = frontImg.getAttribute('alt')?.replace(' - Front', '') || '';
             
             // Update lightbox images
-            const lightboxFront = lb.querySelector('#lightbox-front');
-            const lightboxBack = lb.querySelector('#lightbox-back');
-            if (lightboxFront) (lightboxFront as HTMLImageElement).src = newFrontPath;
-            if (lightboxBack) (lightboxBack as HTMLImageElement).src = newBackPath;
+            const lightboxFront = lb.querySelector('#lightbox-front') as HTMLImageElement | null;
+            const lightboxBack = lb.querySelector('#lightbox-back') as HTMLImageElement | null;
+            if (lightboxFront) lightboxFront.src = newFrontPath;
+            if (lightboxBack) lightboxBack.src = newBackPath;
             
             // Update index
             lb.currentIndex = newIndex;
@@ -212,7 +212,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           });
           
           document.addEventListener('keydown', (e) => {
-            const lb = document.getElementById('lightbox');
+            const lb = document.getElementById('lightbox') as HTMLElement & { currentIndex?: number; totalPostcards?: number; categoryName?: string };
             if (!lb || !lb.classList.contains('active')) return;
             
             if (e.key === 'Escape') {
@@ -228,20 +228,20 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           });
         } else {
           // Update existing lightbox
-          const lb = lightbox as any;
+          const lb = lightbox as HTMLElement & { currentIndex?: number; totalPostcards?: number; categoryName?: string };
           lb.currentIndex = currentIndex;
           lb.totalPostcards = totalPostcards;
           lb.categoryName = categoryName;
           
-          const frontImg = lightbox.querySelector('#lightbox-front');
-          const backImg = lightbox.querySelector('#lightbox-back');
-          const prevBtn = lightbox.querySelector('#lightbox-prev');
-          const nextBtn = lightbox.querySelector('#lightbox-next');
+          const frontImg = lightbox.querySelector('#lightbox-front') as HTMLImageElement | null;
+          const backImg = lightbox.querySelector('#lightbox-back') as HTMLImageElement | null;
+          const prevBtn = lightbox.querySelector('#lightbox-prev') as HTMLElement | null;
+          const nextBtn = lightbox.querySelector('#lightbox-next') as HTMLElement | null;
           
-          if (frontImg) (frontImg as HTMLImageElement).src = frontPath;
-          if (backImg) (backImg as HTMLImageElement).src = backPath;
-          if (prevBtn) (prevBtn as HTMLElement).style.display = currentIndex === 0 ? 'none' : 'flex';
-          if (nextBtn) (nextBtn as HTMLElement).style.display = currentIndex >= totalPostcards - 1 ? 'none' : 'flex';
+          if (frontImg) frontImg.src = frontPath;
+          if (backImg) backImg.src = backPath;
+          if (prevBtn) prevBtn.style.display = currentIndex === 0 ? 'none' : 'flex';
+          if (nextBtn) nextBtn.style.display = currentIndex >= totalPostcards - 1 ? 'none' : 'flex';
         }
         
         // Show lightbox
