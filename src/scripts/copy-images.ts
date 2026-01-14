@@ -10,8 +10,16 @@ function copyCategoryFolders(rootDir: string) {
   }
 
   const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+  // Exclude known non-category folders
+  const excludeFolders = ['node_modules', '.git', 'dist', '.astro', 'public', 'src', '.github', '260113'];
   const categoryFolders = entries.filter(
-    entry => entry.isDirectory() && entry.name.startsWith('cat')
+    entry => {
+      if (!entry.isDirectory()) return false;
+      // Exclude hidden folders (starting with .) and known system folders
+      if (entry.name.startsWith('.')) return false;
+      if (excludeFolders.includes(entry.name)) return false;
+      return true;
+    }
   );
 
   for (const folder of categoryFolders) {
