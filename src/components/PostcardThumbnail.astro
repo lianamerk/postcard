@@ -1,0 +1,174 @@
+---
+interface Props {
+  postcard: {
+    id: string;
+    front: string;
+    back: string;
+    name: string;
+  };
+  category: string;
+}
+
+const { postcard, category } = Astro.props;
+const frontPath = `/${category}/${postcard.front}`;
+const backPath = `/${category}/${postcard.back}`;
+---
+
+<div class="postcard-container" data-postcard-id={postcard.id}>
+  <div class="postcard-flip">
+    <div class="postcard-front">
+      <img 
+        src={frontPath} 
+        alt={`${postcard.name} - Front`}
+        loading="lazy"
+        data-front={frontPath}
+        data-back={backPath}
+        data-name={postcard.name}
+      />
+    </div>
+    <div class="postcard-back">
+      <img 
+        src={backPath} 
+        alt={`${postcard.name} - Back`}
+        loading="lazy"
+      />
+    </div>
+  </div>
+</div>
+
+<script>
+  function initPostcardClick() {
+    const containers = document.querySelectorAll('.postcard-container');
+    
+    containers.forEach(container => {
+      container.addEventListener('click', () => {
+        const img = container.querySelector('.postcard-front img');
+        if (!img) return;
+        
+        const frontPath = img.getAttribute('data-front');
+        const backPath = img.getAttribute('data-back');
+        const name = img.getAttribute('data-name');
+        
+        if (!frontPath || !backPath) return;
+        
+        // Get or create lightbox
+        let lightbox = document.getElementById('lightbox');
+        if (!lightbox) {
+          // Create lightbox dynamically
+          lightbox = document.createElement('div');
+          lightbox.id = 'lightbox';
+          lightbox.className = 'lightbox';
+          lightbox.innerHTML = `
+            <div class="lightbox-content">
+              <button class="lightbox-close" id="lightbox-close">&times;</button>
+              <div class="lightbox-images">
+                <div class="lightbox-image-container">
+                  <img src="${frontPath}" alt="${name} - Front" class="lightbox-image" id="lightbox-front" />
+                  <p class="lightbox-label">Front</p>
+                </div>
+                <div class="lightbox-image-container">
+                  <img src="${backPath}" alt="${name} - Back" class="lightbox-image" id="lightbox-back" />
+                  <p class="lightbox-label">Back</p>
+                </div>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(lightbox);
+          
+          // Add event listeners
+          const closeBtn = lightbox.querySelector('#lightbox-close');
+          if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+              if (lightbox) {
+                lightbox.classList.remove('active');
+                document.body.style.overflow = '';
+              }
+            });
+          }
+          
+          lightbox.addEventListener('click', (e) => {
+            if (e.target === lightbox && lightbox) {
+              lightbox.classList.remove('active');
+              document.body.style.overflow = '';
+            }
+          });
+          
+          document.addEventListener('keydown', (e) => {
+            const lb = document.getElementById('lightbox');
+            if (e.key === 'Escape' && lb && lb.classList.contains('active')) {
+              lb.classList.remove('active');
+              document.body.style.overflow = '';
+            }
+          });
+        } else {
+          // Update existing lightbox
+          const frontImg = lightbox.querySelector('#lightbox-front');
+          const backImg = lightbox.querySelector('#lightbox-back');
+          if (frontImg) (frontImg as HTMLImageElement).src = frontPath;
+          if (backImg) (backImg as HTMLImageElement).src = backPath;
+        }
+        
+        // Show lightbox
+        if (lightbox) {
+          lightbox.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    });
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPostcardClick);
+  } else {
+    initPostcardClick();
+  }
+</script>
+
+<style>
+  .postcard-container {
+    aspect-ratio: 1;
+    perspective: 1000px;
+    cursor: pointer;
+  }
+
+  .postcard-flip {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.6s;
+  }
+
+  .postcard-container:hover .postcard-flip {
+    transform: rotateY(180deg);
+  }
+
+  .postcard-front,
+  .postcard-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s;
+  }
+
+  .postcard-container:hover .postcard-front,
+  .postcard-container:hover .postcard-back {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .postcard-back {
+    transform: rotateY(180deg);
+  }
+
+  .postcard-front img,
+  .postcard-back img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+</style>

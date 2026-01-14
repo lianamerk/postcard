@@ -1,0 +1,244 @@
+---
+import Sidebar from '../components/Sidebar.astro';
+import metadata from '../data/metadata.json';
+import '../styles/global.css';
+
+const categories = metadata.categories;
+---
+
+<style is:global>
+  .lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    overflow: auto;
+    padding: 2rem;
+  }
+
+  .lightbox.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lightbox-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .lightbox-close {
+    position: absolute;
+    top: -2.5rem;
+    right: 0;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 3rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+  }
+
+  .lightbox-close:hover {
+    opacity: 0.7;
+  }
+
+  .lightbox-images {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 100%;
+  }
+
+  .lightbox-image-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .lightbox-image {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    border-radius: 4px;
+    background: white;
+    padding: 0.5rem;
+  }
+
+  .lightbox-label {
+    color: white;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .lightbox-images {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .lightbox-content {
+      padding: 1rem;
+    }
+
+    .lightbox {
+      padding: 1rem;
+    }
+  }
+</style>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive postcard gallery collection" />
+    <title>Postcard Gallery</title>
+  </head>
+  <body>
+    <Sidebar categories={categories} />
+    <main class="main-content">
+      <div class="home-container">
+        <header class="home-header">
+          <h1>Postcard Gallery</h1>
+          <p class="subtitle">
+            Explore {metadata.totalPostcards} postcards across {categories.length} categories
+          </p>
+        </header>
+        <div class="category-grid">
+          {categories.map((category) => (
+            <a href={`/${category.folder}`} class="category-card">
+              <div class="category-preview">
+                {category.postcards.length > 0 && (
+                  <img 
+                    src={`/${category.folder}/${category.postcards[0].front}`}
+                    alt={category.name}
+                    loading="lazy"
+                  />
+                )}
+              </div>
+              <div class="category-info">
+                <h2>{category.name}</h2>
+                <p>{category.postcards.length} postcards</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
+
+<style>
+  .main-content {
+    margin-left: 250px;
+    min-height: 100vh;
+  }
+
+  .home-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+  }
+
+  .home-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .home-header h1 {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+  }
+
+  .subtitle {
+    font-size: 1.25rem;
+    color: #6c757d;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+  }
+
+  .category-card {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .category-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    text-decoration: none;
+  }
+
+  .category-preview {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #f8f9fa;
+  }
+
+  .category-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .category-info {
+    padding: 1.5rem;
+  }
+
+  .category-info h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+  }
+
+  .category-info p {
+    color: #6c757d;
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .main-content {
+      margin-left: 0;
+    }
+
+    .home-container {
+      padding: 2rem 1rem;
+    }
+
+    .home-header h1 {
+      font-size: 2rem;
+    }
+
+    .category-grid {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.5rem;
+    }
+  }
+</style>

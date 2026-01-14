@@ -1,0 +1,91 @@
+---
+interface Props {
+  categories: Array<{
+    name: string;
+    folder: string;
+    postcards: Array<unknown>;
+  }>;
+  currentCategory?: string;
+}
+
+const { categories, currentCategory } = Astro.props;
+---
+
+<aside class="sidebar">
+  <nav class="sidebar-nav">
+    <a href="/" class={`nav-link ${!currentCategory ? 'active' : ''}`}>
+      Home
+    </a>
+    {categories.map((category) => (
+      <a
+        href={`/${category.folder}`}
+        class={`nav-link ${currentCategory === category.folder ? 'active' : ''}`}
+      >
+        {category.name} ({category.postcards.length})
+      </a>
+    ))}
+  </nav>
+</aside>
+
+<style>
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 250px;
+    background: #f8f9fa;
+    border-right: 1px solid #e9ecef;
+    overflow-y: auto;
+    z-index: 100;
+    padding: 1.5rem 0;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0 1rem;
+  }
+
+  .nav-link {
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: #495057;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .nav-link:hover {
+    background: #e9ecef;
+    color: #212529;
+  }
+
+  .nav-link.active {
+    background: #007bff;
+    color: white;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: relative;
+      border-right: none;
+      border-bottom: 1px solid #e9ecef;
+      max-height: 200px;
+    }
+
+    .sidebar-nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding: 0.5rem;
+    }
+
+    .nav-link {
+      font-size: 0.875rem;
+      padding: 0.5rem 0.75rem;
+    }
+  }
+</style>
