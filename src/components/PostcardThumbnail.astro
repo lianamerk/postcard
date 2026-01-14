@@ -7,22 +7,39 @@ interface Props {
     name: string;
   };
   category: string;
+  index: number;
+  total: number;
+  allPostcards: Array<{
+    id: string;
+    front: string;
+    back: string;
+    name: string;
+  }>;
 }
 
-const { postcard, category } = Astro.props;
-// Use import.meta.env.BASE_URL to handle base path correctly
+const { postcard, category, index, total, allPostcards } = Astro.props;
+// Include base path for images (needed for both dev and production with base path)
 const base = import.meta.env.BASE_URL;
-const frontPath = `${base}${category}/${postcard.front}`;
-const backPath = `${base}${category}/${postcard.back}`;
+// Ensure proper path joining (BASE_URL ends with /, so we need to handle it)
+const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
+const frontPath = `${basePath}/${category}/${postcard.front}`;
+const backPath = `${basePath}/${category}/${postcard.back}`;
 ---
 
-<div class="postcard-container" data-postcard-id={postcard.id}>
+<div 
+  class="postcard-container" 
+  data-postcard-id={postcard.id}
+  data-index={index}
+  data-total={total}
+  data-category={category}
+>
   <div class="postcard-flip">
     <div class="postcard-front">
       <img 
         src={frontPath} 
         alt={`${postcard.name} - Front`}
         loading="lazy"
+        class="front-image"
       />
     </div>
     <div class="postcard-back">
@@ -30,6 +47,7 @@ const backPath = `${base}${category}/${postcard.back}`;
         src={backPath} 
         alt={`${postcard.name} - Back`}
         loading="lazy"
+        class="back-image"
       />
     </div>
   </div>
@@ -38,19 +56,57 @@ const backPath = `${base}${category}/${postcard.back}`;
 <script>
   function initPostcardClick() {
     const containers = document.querySelectorAll('.postcard-container');
-    // Get base path from the first image's src
-    const basePath = document.querySelector('.postcard-front img')?.getAttribute('src')?.replace(/\/[^/]+\/[^/]+$/, '') || '';
     
+    // Sync back image height with front image for each postcard
     containers.forEach(container => {
+      const frontImg = container.querySelector('.front-image');
+      const backDiv = container.querySelector('.postcard-back');
+      const backImg = container.querySelector('.back-image');
+      
+      if (frontImg && backDiv && backImg) {
+        // Set back container height to match front image when loaded
+        // This ensures the flip animation works regardless of image orientation
+        const syncHeights = () => {
+          if (frontImg.complete && frontImg.naturalHeight > 0) {
+            // Use the actual rendered height of the front image
+            const frontHeight = frontImg.offsetHeight || frontImg.clientHeight;
+            if (frontHeight > 0) {
+              backDiv.style.height = frontHeight + 'px';
+            }
+          }
+        };
+        
+        // Try to sync immediately if image is already loaded
+        if (frontImg.complete && frontImg.naturalHeight > 0) {
+          // Small delay to ensure layout is complete
+          setTimeout(syncHeights, 10);
+        } else {
+          frontImg.addEventListener('load', syncHeights);
+        }
+        
+        // Also sync on window resize
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(syncHeights, 100);
+        });
+      }
+      
+      // Click handler for lightbox
       container.addEventListener('click', () => {
-        const img = container.querySelector('.postcard-front img');
-        if (!img) return;
+        const frontImgEl = container.querySelector('.front-image');
+        const backImgEl = container.querySelector('.back-image');
+        if (!frontImgEl || !backImgEl) return;
+        
+        // Get postcard data from data attributes
+        const currentIndex = parseInt(container.getAttribute('data-index') || '0');
+        const totalPostcards = parseInt(container.getAttribute('data-total') || '1');
+        const categoryName = container.getAttribute('data-category') || '';
         
         // Get paths from img src (already includes base path)
-        const frontPath = img.getAttribute('src') || '';
-        const backImg = container.querySelector('.postcard-back img');
-        const backPath = backImg?.getAttribute('src') || '';
-        const name = img.getAttribute('alt')?.replace(' - Front', '') || '';
+        const frontPath = frontImgEl.getAttribute('src') || '';
+        const backPath = backImgEl.getAttribute('src') || '';
+        const name = frontImgEl.getAttribute('alt')?.replace(' - Front', '') || '';
         
         if (!frontPath || !backPath) return;
         
@@ -64,6 +120,8 @@ const backPath = `${base}${category}/${postcard.back}`;
           lightbox.innerHTML = `
             <div class="lightbox-content">
               <button class="lightbox-close" id="lightbox-close">&times;</button>
+              <button class="lightbox-nav lightbox-prev" id="lightbox-prev" ${currentIndex === 0 ? 'style="display:none"' : ''}>&#8249;</button>
+              <button class="lightbox-nav lightbox-next" id="lightbox-next" ${currentIndex >= totalPostcards - 1 ? 'style="display:none"' : ''}>&#8250;</button>
               <div class="lightbox-images">
                 <div class="lightbox-image-container">
                   <img src="${frontPath}" alt="${name} - Front" class="lightbox-image" id="lightbox-front" />
@@ -78,6 +136,11 @@ const backPath = `${base}${category}/${postcard.back}`;
           `;
           document.body.appendChild(lightbox);
           
+          // Store navigation data
+          (lightbox as any).currentIndex = currentIndex;
+          (lightbox as any).totalPostcards = totalPostcards;
+          (lightbox as any).categoryName = categoryName;
+          
           // Add event listeners
           const closeBtn = lightbox.querySelector('#lightbox-close');
           if (closeBtn) {
@@ -86,6 +149,58 @@ const backPath = `${base}${category}/${postcard.back}`;
                 lightbox.classList.remove('active');
                 document.body.style.overflow = '';
               }
+            });
+          }
+          
+          const prevBtn = lightbox.querySelector('#lightbox-prev');
+          const nextBtn = lightbox.querySelector('#lightbox-next');
+          
+          // Navigation function
+          const navigatePostcard = (direction: number) => {
+            const lb = document.getElementById('lightbox') as any;
+            if (!lb) return;
+            
+            const newIndex = lb.currentIndex + direction;
+            if (newIndex < 0 || newIndex >= lb.totalPostcards) return;
+            
+            // Find the postcard container for the new index
+            const allContainers = document.querySelectorAll(`.postcard-container[data-category="${lb.categoryName}"]`);
+            const targetContainer = allContainers[newIndex] as HTMLElement;
+            if (!targetContainer) return;
+            
+            const frontImg = targetContainer.querySelector('.front-image');
+            const backImg = targetContainer.querySelector('.back-image');
+            if (!frontImg || !backImg) return;
+            
+            const newFrontPath = frontImg.getAttribute('src') || '';
+            const newBackPath = backImg.getAttribute('src') || '';
+            const newName = frontImg.getAttribute('alt')?.replace(' - Front', '') || '';
+            
+            // Update lightbox images
+            const lightboxFront = lb.querySelector('#lightbox-front');
+            const lightboxBack = lb.querySelector('#lightbox-back');
+            if (lightboxFront) (lightboxFront as HTMLImageElement).src = newFrontPath;
+            if (lightboxBack) (lightboxBack as HTMLImageElement).src = newBackPath;
+            
+            // Update index
+            lb.currentIndex = newIndex;
+            
+            // Update navigation buttons
+            if (prevBtn) prevBtn.style.display = newIndex === 0 ? 'none' : 'flex';
+            if (nextBtn) nextBtn.style.display = newIndex >= lb.totalPostcards - 1 ? 'none' : 'flex';
+          };
+          
+          if (prevBtn) {
+            prevBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              navigatePostcard(-1);
+            });
+          }
+          
+          if (nextBtn) {
+            nextBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              navigatePostcard(1);
             });
           }
           
@@ -98,17 +213,35 @@ const backPath = `${base}${category}/${postcard.back}`;
           
           document.addEventListener('keydown', (e) => {
             const lb = document.getElementById('lightbox');
-            if (e.key === 'Escape' && lb && lb.classList.contains('active')) {
+            if (!lb || !lb.classList.contains('active')) return;
+            
+            if (e.key === 'Escape') {
               lb.classList.remove('active');
               document.body.style.overflow = '';
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              navigatePostcard(-1);
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              navigatePostcard(1);
             }
           });
         } else {
           // Update existing lightbox
+          const lb = lightbox as any;
+          lb.currentIndex = currentIndex;
+          lb.totalPostcards = totalPostcards;
+          lb.categoryName = categoryName;
+          
           const frontImg = lightbox.querySelector('#lightbox-front');
           const backImg = lightbox.querySelector('#lightbox-back');
+          const prevBtn = lightbox.querySelector('#lightbox-prev');
+          const nextBtn = lightbox.querySelector('#lightbox-next');
+          
           if (frontImg) (frontImg as HTMLImageElement).src = frontPath;
           if (backImg) (backImg as HTMLImageElement).src = backPath;
+          if (prevBtn) (prevBtn as HTMLElement).style.display = currentIndex === 0 ? 'none' : 'flex';
+          if (nextBtn) (nextBtn as HTMLElement).style.display = currentIndex >= totalPostcards - 1 ? 'none' : 'flex';
         }
         
         // Show lightbox
@@ -129,7 +262,7 @@ const backPath = `${base}${category}/${postcard.back}`;
 
 <style>
   .postcard-container {
-    aspect-ratio: 1;
+    width: 100%;
     perspective: 1000px;
     cursor: pointer;
   }
@@ -137,7 +270,6 @@ const backPath = `${base}${category}/${postcard.back}`;
   .postcard-flip {
     position: relative;
     width: 100%;
-    height: 100%;
     transform-style: preserve-3d;
     transition: transform 0.6s;
   }
@@ -146,9 +278,20 @@ const backPath = `${base}${category}/${postcard.back}`;
     transform: rotateY(180deg);
   }
 
-  .postcard-front,
+  .postcard-front {
+    position: relative;
+    width: 100%;
+    backface-visibility: hidden;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s;
+  }
+  
   .postcard-back {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     backface-visibility: hidden;
@@ -156,6 +299,7 @@ const backPath = `${base}${category}/${postcard.back}`;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transition: box-shadow 0.3s;
+    transform: rotateY(180deg);
   }
 
   .postcard-container:hover .postcard-front,
@@ -163,15 +307,25 @@ const backPath = `${base}${category}/${postcard.back}`;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   }
 
-  .postcard-back {
-    transform: rotateY(180deg);
+  .postcard-front img {
+    width: 100%;
+    height: auto;
+    display: block;
+    /* Respect EXIF orientation data - this tells browser to auto-rotate based on EXIF */
+    image-orientation: from-image;
   }
-
-  .postcard-front img,
+  
+  .postcard-back {
+    /* Match the height of the front image */
+    height: 100%;
+  }
+  
   .postcard-back img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    /* Respect EXIF orientation */
+    image-orientation: from-image;
   }
 </style>

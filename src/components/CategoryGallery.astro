@@ -16,8 +16,14 @@ const { postcards, category } = Astro.props;
 
 <div class="gallery-container">
   <div class="gallery-grid">
-    {postcards.map((postcard) => (
-      <PostcardThumbnail postcard={postcard} category={category} />
+    {postcards.map((postcard, index) => (
+      <PostcardThumbnail 
+        postcard={postcard} 
+        category={category} 
+        index={index}
+        total={postcards.length}
+        allPostcards={postcards}
+      />
     ))}
   </div>
 </div>
@@ -31,15 +37,16 @@ const { postcards, category } = Astro.props;
 
   .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
     padding: 1rem 0;
+    align-items: start;
   }
 
   @media (max-width: 768px) {
     .gallery-grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.5rem;
     }
 
     .gallery-container {
@@ -49,7 +56,7 @@ const { postcards, category } = Astro.props;
 
   @media (min-width: 1200px) {
     .gallery-grid {
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     }
   }
 </style>
