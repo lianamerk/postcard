@@ -122,12 +122,14 @@ const categories = metadata.categories;
           </p>
         </header>
         <div class="category-grid">
-          {categories.map((category) => (
-            <a href={`/${category.folder}`} class="category-card">
+          {categories.map((category) => {
+            const base = import.meta.env.BASE_URL;
+            return (
+            <a href={`${base}${category.folder}`} class="category-card">
               <div class="category-preview">
                 {category.postcards.length > 0 && (
                   <img 
-                    src={`/${category.folder}/${category.postcards[0].front}`}
+                    src={`${base}${category.folder}/${category.postcards[0].front}`}
                     alt={category.name}
                     loading="lazy"
                   />
@@ -138,7 +140,8 @@ const categories = metadata.categories;
                 <p>{category.postcards.length} postcards</p>
               </div>
             </a>
-          ))}
+            );
+          })}
         </div>
       </div>
     </main>

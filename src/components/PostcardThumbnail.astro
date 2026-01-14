@@ -10,8 +10,10 @@ interface Props {
 }
 
 const { postcard, category } = Astro.props;
-const frontPath = `/${category}/${postcard.front}`;
-const backPath = `/${category}/${postcard.back}`;
+// Use import.meta.env.BASE_URL to handle base path correctly
+const base = import.meta.env.BASE_URL;
+const frontPath = `${base}${category}/${postcard.front}`;
+const backPath = `${base}${category}/${postcard.back}`;
 ---
 
 <div class="postcard-container" data-postcard-id={postcard.id}>
@@ -21,9 +23,6 @@ const backPath = `/${category}/${postcard.back}`;
         src={frontPath} 
         alt={`${postcard.name} - Front`}
         loading="lazy"
-        data-front={frontPath}
-        data-back={backPath}
-        data-name={postcard.name}
       />
     </div>
     <div class="postcard-back">
@@ -39,15 +38,19 @@ const backPath = `/${category}/${postcard.back}`;
 <script>
   function initPostcardClick() {
     const containers = document.querySelectorAll('.postcard-container');
+    // Get base path from the first image's src
+    const basePath = document.querySelector('.postcard-front img')?.getAttribute('src')?.replace(/\/[^/]+\/[^/]+$/, '') || '';
     
     containers.forEach(container => {
       container.addEventListener('click', () => {
         const img = container.querySelector('.postcard-front img');
         if (!img) return;
         
-        const frontPath = img.getAttribute('data-front');
-        const backPath = img.getAttribute('data-back');
-        const name = img.getAttribute('data-name');
+        // Get paths from img src (already includes base path)
+        const frontPath = img.getAttribute('src') || '';
+        const backImg = container.querySelector('.postcard-back img');
+        const backPath = backImg?.getAttribute('src') || '';
+        const name = img.getAttribute('alt')?.replace(' - Front', '') || '';
         
         if (!frontPath || !backPath) return;
         
