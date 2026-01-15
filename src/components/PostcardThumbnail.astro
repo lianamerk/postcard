@@ -35,19 +35,23 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
 >
   <div class="postcard-flip">
     <div class="postcard-front">
+      <div class="image-placeholder"></div>
       <img 
         src={frontPath} 
         alt={`${postcard.name} - Front`}
         loading="lazy"
         class="front-image"
+        decoding="async"
       />
     </div>
     <div class="postcard-back">
+      <div class="image-placeholder"></div>
       <img 
         src={backPath} 
         alt={`${postcard.name} - Back`}
         loading="lazy"
         class="back-image"
+        decoding="async"
       />
     </div>
   </div>
@@ -64,24 +68,67 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
       const backImg = container.querySelector('.back-image') as HTMLImageElement | null;
       
       if (frontImg && backDiv && backImg) {
-        // Set back container height to match front image when loaded
+        // Handle image loading with fade-in effect
+        const handleImageLoad = (img: HTMLImageElement) => {
+          img.classList.add('loaded');
+          // Hide placeholder when image loads
+          const placeholder = img.parentElement?.querySelector('.image-placeholder') as HTMLElement;
+          if (placeholder) {
+            placeholder.style.display = 'none';
+          }
+        };
+
+        // Check if already loaded
+        if (frontImg.complete && frontImg.naturalHeight > 0) {
+          handleImageLoad(frontImg);
+        } else {
+          frontImg.addEventListener('load', () => handleImageLoad(frontImg));
+        }
+
+        if (backImg.complete && backImg.naturalHeight > 0) {
+          handleImageLoad(backImg);
+        } else {
+          backImg.addEventListener('load', () => handleImageLoad(backImg));
+        }
+
+        // Sync back container height to match front image when loaded
         // This ensures the flip animation works regardless of image orientation
         const syncHeights = () => {
-          if (frontImg.complete && frontImg.naturalHeight > 0) {
+          if (frontImg.complete && frontImg.naturalHeight > 0 && backImg.complete && backImg.naturalHeight > 0) {
             // Use the actual rendered height of the front image
             const frontHeight = frontImg.offsetHeight || frontImg.clientHeight;
-            if (frontHeight > 0) {
-              backDiv.style.height = frontHeight + 'px';
+            const frontWidth = frontImg.offsetWidth || frontImg.clientWidth;
+            
+            if (frontHeight > 0 && frontWidth > 0) {
+              // Calculate the back image's natural height at the front's width
+              const backAspectRatio = backImg.naturalWidth / backImg.naturalHeight;
+              const backHeightAtFrontWidth = frontWidth / backAspectRatio;
+              
+              // Set back container to match whichever is taller (front or back at front width)
+              const containerHeight = Math.max(frontHeight, backHeightAtFrontWidth);
+              backDiv.style.height = containerHeight + 'px';
+              
+              // Let the back image scale naturally like the front
+              backImg.style.width = '100%';
+              backImg.style.height = 'auto';
             }
           }
         };
         
-        // Try to sync immediately if image is already loaded
-        if (frontImg.complete && frontImg.naturalHeight > 0) {
+        // Wait for both images to load
+        const trySync = () => {
+          if (frontImg.complete && backImg.complete) {
+            syncHeights();
+          }
+        };
+        
+        // Try to sync immediately if both images are already loaded
+        if (frontImg.complete && backImg.complete && frontImg.naturalHeight > 0 && backImg.naturalHeight > 0) {
           // Small delay to ensure layout is complete
           setTimeout(syncHeights, 10);
         } else {
-          frontImg.addEventListener('load', syncHeights);
+          frontImg.addEventListener('load', trySync);
+          backImg.addEventListener('load', trySync);
         }
         
         // Also sync on window resize
@@ -119,17 +166,14 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           lightbox.className = 'lightbox';
           lightbox.innerHTML = `
             <div class="lightbox-content">
-              <button class="lightbox-close" id="lightbox-close">&times;</button>
               <button class="lightbox-nav lightbox-prev" id="lightbox-prev" ${currentIndex === 0 ? 'style="display:none"' : ''}>&#8249;</button>
               <button class="lightbox-nav lightbox-next" id="lightbox-next" ${currentIndex >= totalPostcards - 1 ? 'style="display:none"' : ''}>&#8250;</button>
               <div class="lightbox-images">
                 <div class="lightbox-image-container">
                   <img src="${frontPath}" alt="${name} - Front" class="lightbox-image" id="lightbox-front" />
-                  <p class="lightbox-label">Front</p>
                 </div>
                 <div class="lightbox-image-container">
                   <img src="${backPath}" alt="${name} - Back" class="lightbox-image" id="lightbox-back" />
-                  <p class="lightbox-label">Back</p>
                 </div>
               </div>
             </div>
@@ -143,16 +187,6 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           lb.categoryName = categoryName;
           
           // Add event listeners
-          const closeBtn = lightbox.querySelector('#lightbox-close') as HTMLElement | null;
-          if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-              if (lightbox) {
-                lightbox.classList.remove('active');
-                document.body.style.overflow = '';
-              }
-            });
-          }
-          
           const prevBtn = lightbox.querySelector('#lightbox-prev') as HTMLElement | null;
           const nextBtn = lightbox.querySelector('#lightbox-next') as HTMLElement | null;
           
@@ -248,6 +282,26 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
         if (lightbox) {
           lightbox.classList.add('active');
           document.body.style.overflow = 'hidden';
+          
+          // Add idle detection for arrow fading
+          let idleTimeout: ReturnType<typeof setTimeout>;
+          const resetIdle = () => {
+            if (lightbox) {
+              lightbox.classList.remove('idle');
+              clearTimeout(idleTimeout);
+              idleTimeout = setTimeout(() => {
+                if (lightbox) {
+                  lightbox.classList.add('idle');
+                }
+              }, 200); // Fade after 0.2 seconds of no movement
+            }
+          };
+          
+          lightbox.addEventListener('mousemove', resetIdle);
+          lightbox.addEventListener('mouseenter', () => {
+            if (lightbox) lightbox.classList.remove('idle');
+          });
+          resetIdle(); // Start the timer
         }
       });
     });
@@ -265,6 +319,13 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     width: 100%;
     perspective: 1000px;
     cursor: pointer;
+    opacity: 0; /* Start hidden, masonry will show */
+    position: relative;
+    z-index: 1;
+  }
+  
+  .postcard-container:hover {
+    z-index: 10; /* Bring hovered card to front */
   }
 
   .postcard-flip {
@@ -274,7 +335,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     transition: transform 0.6s;
   }
 
-  .postcard-container:hover .postcard-flip {
+  html[data-hover-enabled="true"] .postcard-container:hover .postcard-flip {
     transform: rotateY(180deg);
   }
 
@@ -293,7 +354,6 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
     backface-visibility: hidden;
     border-radius: 4px;
     overflow: hidden;
@@ -315,15 +375,9 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     image-orientation: from-image;
   }
   
-  .postcard-back {
-    /* Match the height of the front image */
-    height: 100%;
-  }
-  
   .postcard-back img {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
     display: block;
     /* Respect EXIF orientation */
     image-orientation: from-image;

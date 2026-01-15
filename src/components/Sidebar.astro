@@ -10,8 +10,12 @@ interface Props {
 
 const { categories, currentCategory } = Astro.props;
 const base = import.meta.env.BASE_URL;
-// Ensure proper path joining
 const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
+
+// Group categories by section
+const locationCategories = ['Asia', 'Austria', 'Canada', 'Egypt', 'Germany', 'Ireland', 'Italy', 'Paris', 'France', 'Switzerland', 'United_Kingdom', 'Other_Europe', 'Other_World'];
+const otherCategories = categories.filter(cat => !locationCategories.includes(cat.folder));
+const locations = categories.filter(cat => locationCategories.includes(cat.folder));
 ---
 
 <aside class="sidebar">
@@ -19,45 +23,95 @@ const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
     <a href={base} class={`nav-link ${!currentCategory ? 'active' : ''}`}>
       Home
     </a>
-    {categories.map((category) => (
+    
+    {locations.length > 0 && (
+      <div class="nav-dropdown">
+        <button class="nav-link nav-dropdown-toggle" id="locations-toggle">
+          International
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="nav-dropdown-menu" id="locations-menu">
+          {locations.map((category) => (
+            <a
+              href={`${basePath}/${category.folder}`}
+              class={`nav-link nav-link-dropdown ${currentCategory === category.folder ? 'active' : ''}`}
+            >
+              {category.name}
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+    
+    {otherCategories.map((category) => (
       <a
         href={`${basePath}/${category.folder}`}
         class={`nav-link ${currentCategory === category.folder ? 'active' : ''}`}
       >
-        {category.name} ({category.postcards.length})
+        {category.name}
       </a>
     ))}
   </nav>
+  
+  <div class="sidebar-controls">
+    {currentCategory && (
+      <div class="current-category">
+        <strong>{categories.find(cat => cat.folder === currentCategory)?.name || currentCategory}</strong>
+      </div>
+    )}
+    <label class="toggle-label">
+      <input type="checkbox" id="hover-toggle" checked />
+      <span>Hover to flip</span>
+    </label>
+  </div>
 </aside>
 
 <style>
   .sidebar {
     position: fixed;
-    left: 0;
     top: 0;
-    height: 100vh;
-    width: 250px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
     background: #f8f9fa;
-    border-right: 1px solid #e9ecef;
-    overflow-y: auto;
-    z-index: 100;
-    padding: 1.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+    z-index: 1000;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease-in-out;
+    overflow: visible;
+  }
+
+  .sidebar.hidden {
+    transform: translateY(-100%);
   }
 
   .sidebar-nav {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     gap: 0.25rem;
-    padding: 0 1rem;
+    flex: 1;
+    padding: 0.5rem 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
 
   .nav-link {
-    padding: 0.75rem 1rem;
+    padding: 0.4rem 0.75rem;
     text-decoration: none;
     color: #495057;
-    border-radius: 6px;
+    border-radius: 4px;
     transition: all 0.2s;
     font-weight: 500;
+    display: inline-block;
+    white-space: nowrap;
+    font-size: 0.85rem;
   }
 
   .nav-link:hover {
@@ -70,25 +124,283 @@ const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
     color: white;
   }
 
+  .nav-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+
+  .nav-dropdown-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dropdown-arrow {
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+  }
+
+  .nav-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
+  }
+
+  .nav-dropdown-menu {
+    position: fixed;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 150px;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+    flex-direction: column;
+    padding: 0.25rem 0;
+    margin-top: 0.25rem;
+    z-index: 1001;
+  }
+
+  .nav-dropdown.open .nav-dropdown-menu {
+    display: flex;
+  }
+
+  .nav-link-dropdown {
+    padding: 0.4rem 0.75rem;
+    border-radius: 0;
+    width: 100%;
+    text-align: left;
+    font-size: 0.85rem;
+  }
+
+  .nav-link-dropdown:hover {
+    background: #f8f9fa;
+  }
+
+  .nav-link-dropdown.active {
+    background: #007bff;
+    color: white;
+  }
+
+  .sidebar-controls {
+    padding: 0.5rem 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .current-category {
+    font-size: 0.8rem;
+    color: #495057;
+  }
+
+  .current-category strong {
+    font-weight: 600;
+    color: #212529;
+  }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: #495057;
+    white-space: nowrap;
+  }
+
+  .toggle-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #007bff;
+  }
+
   @media (max-width: 768px) {
     .sidebar {
-      width: 100%;
-      height: auto;
-      position: relative;
-      border-right: none;
-      border-bottom: 1px solid #e9ecef;
-      max-height: 200px;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0.75rem;
     }
 
     .sidebar-nav {
-      flex-direction: row;
-      flex-wrap: wrap;
-      padding: 0.5rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.25rem;
+      width: 100%;
     }
 
     .nav-link {
-      font-size: 0.875rem;
-      padding: 0.5rem 0.75rem;
+      width: 100%;
+      text-align: left;
+    }
+
+    .nav-dropdown {
+      width: 100%;
+    }
+
+    .nav-dropdown-toggle {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .nav-dropdown-menu {
+      position: static;
+      width: 100%;
+      box-shadow: none;
+      border: none;
+      border-top: 1px solid #e9ecef;
+      margin-top: 0;
+    }
+
+    .sidebar-controls {
+      width: 100%;
+      border-top: 1px solid #e9ecef;
+      padding-top: 0.75rem;
+      margin-top: 0.5rem;
     }
   }
 </style>
+
+<script>
+  // Handle dropdown toggle
+  const locationsToggle = document.getElementById('locations-toggle');
+  const locationsMenu = document.getElementById('locations-menu');
+  const navDropdown = locationsToggle?.closest('.nav-dropdown');
+
+  if (locationsToggle && navDropdown && locationsMenu) {
+    let hoverTimeout: ReturnType<typeof setTimeout>;
+    
+    const openDropdown = () => {
+      clearTimeout(hoverTimeout);
+      navDropdown.classList.add('open');
+      const toggleRect = locationsToggle.getBoundingClientRect();
+      (locationsMenu as HTMLElement).style.top = (toggleRect.bottom + window.scrollY) + 'px';
+      (locationsMenu as HTMLElement).style.left = (toggleRect.left + window.scrollX) + 'px';
+    };
+
+    const closeDropdown = () => {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = setTimeout(() => {
+        navDropdown.classList.remove('open');
+      }, 150); // Small delay to allow moving between toggle and menu
+    };
+
+    // Open on hover over toggle
+    locationsToggle.addEventListener('mouseenter', () => {
+      openDropdown();
+    });
+
+    // Keep open when hovering over dropdown menu
+    locationsMenu.addEventListener('mouseenter', () => {
+      clearTimeout(hoverTimeout);
+    });
+
+    // Close when leaving dropdown area
+    locationsMenu.addEventListener('mouseleave', () => {
+      closeDropdown();
+    });
+
+    // Also close when leaving toggle (if not entering menu)
+    locationsToggle.addEventListener('mouseleave', (e) => {
+      const relatedTarget = e.relatedTarget as Node;
+      if (!locationsMenu.contains(relatedTarget)) {
+        closeDropdown();
+      }
+    });
+
+    // Click to toggle (for accessibility)
+    locationsToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (navDropdown.classList.contains('open')) {
+        navDropdown.classList.remove('open');
+      } else {
+        openDropdown();
+      }
+    });
+
+    // Reposition on scroll/resize
+    const repositionDropdown = () => {
+      if (navDropdown.classList.contains('open')) {
+        const toggleRect = locationsToggle.getBoundingClientRect();
+        (locationsMenu as HTMLElement).style.top = (toggleRect.bottom + window.scrollY) + 'px';
+        (locationsMenu as HTMLElement).style.left = (toggleRect.left + window.scrollX) + 'px';
+      }
+    };
+
+    window.addEventListener('scroll', repositionDropdown, { passive: true });
+    window.addEventListener('resize', repositionDropdown);
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!navDropdown.contains(e.target as Node)) {
+        navDropdown.classList.remove('open');
+      }
+    });
+
+    // Close dropdown when clicking a link
+    const dropdownLinks = locationsMenu.querySelectorAll('.nav-link-dropdown');
+    dropdownLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        navDropdown.classList.remove('open');
+      });
+    });
+  }
+
+  // Handle hover toggle
+  const hoverToggle = document.getElementById('hover-toggle') as HTMLInputElement;
+  if (hoverToggle) {
+    // Check localStorage for saved preference
+    const savedPreference = localStorage.getItem('hover-enabled');
+    if (savedPreference !== null) {
+      hoverToggle.checked = savedPreference === 'true';
+    }
+    
+    hoverToggle.addEventListener('change', (e) => {
+      const enabled = (e.target as HTMLInputElement).checked;
+      localStorage.setItem('hover-enabled', enabled.toString());
+      document.documentElement.setAttribute('data-hover-enabled', enabled.toString());
+      // Trigger a custom event for components to listen to
+      window.dispatchEvent(new CustomEvent('hoverToggleChanged', { detail: { enabled } }));
+    });
+    
+    // Set initial state
+    document.documentElement.setAttribute('data-hover-enabled', hoverToggle.checked.toString());
+  }
+
+  // Auto-hide top bar on scroll
+  const sidebar = document.querySelector('.sidebar') as HTMLElement;
+  if (sidebar) {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const updateSidebar = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        // Scrolling down - hide
+        sidebar.classList.add('hidden');
+      } else if (currentScrollY < lastScrollY) {
+        // Scrolling up - show
+        sidebar.classList.remove('hidden');
+      }
+      
+      lastScrollY = currentScrollY;
+      ticking = false;
+    };
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateSidebar);
+        ticking = true;
+      }
+    }, { passive: true });
+  }
+</script>

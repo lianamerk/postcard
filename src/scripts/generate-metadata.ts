@@ -90,8 +90,10 @@ function generateMetadata(rootDir: string): Metadata {
     const postcards = findPostcardPairs(categoryPath);
 
     if (postcards.length > 0) {
+      // Replace underscores with spaces in display name, but keep folder name as-is
+      const displayName = folder.replace(/_/g, ' ');
       categories.push({
-        name: folder,
+        name: displayName,
         folder: folder,
         postcards,
       });

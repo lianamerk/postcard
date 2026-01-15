@@ -15,7 +15,7 @@ const { postcards, category } = Astro.props;
 ---
 
 <div class="gallery-container">
-  <div class="gallery-grid">
+  <div class="gallery-grid" id="gallery-grid">
     {postcards.map((postcard, index) => (
       <PostcardThumbnail 
         postcard={postcard} 
@@ -28,6 +28,213 @@ const { postcards, category } = Astro.props;
   </div>
 </div>
 
+<script>
+  function initMasonry() {
+    const galleryGrid = document.getElementById('gallery-grid');
+    if (!galleryGrid) return;
+
+    galleryGrid.classList.add('loading');
+
+    const containers = galleryGrid.querySelectorAll('.postcard-container');
+    if (containers.length === 0) return;
+
+    // Calculate column width (responsive) - larger images
+    const getColumnWidth = () => {
+      const width = window.innerWidth;
+      if (width < 768) return 120;
+      if (width >= 1200) return 200;
+      return 180;
+    };
+
+    const gap = 16; // Increased gap for better spacing (1rem = 16px)
+    let columnWidth = getColumnWidth();
+    const containerWidth = galleryGrid.offsetWidth;
+    const numColumns = Math.floor((containerWidth + gap) / (columnWidth + gap));
+    const actualColumnWidth = (containerWidth - (numColumns - 1) * gap) / numColumns;
+
+    // Initialize column heights
+    const columnHeights = new Array(numColumns).fill(0);
+    const positions: Array<{ top: number; left: number; width: number }> = [];
+
+    // First pass: calculate positions based on image aspect ratios
+    containers.forEach((container, index) => {
+      const frontImg = container.querySelector('.front-image') as HTMLImageElement | null;
+      if (!frontImg) return;
+
+        const calculatePosition = () => {
+        // Get natural aspect ratio
+        const aspectRatio = frontImg.naturalWidth / frontImg.naturalHeight;
+        const isLandscape = aspectRatio > 1.1;
+        const isPortrait = aspectRatio < 0.9;
+
+        // Determine size - make some variation for interest
+        let itemWidth = actualColumnWidth;
+        let itemHeight: number;
+        let spans = 1;
+
+        if (isLandscape) {
+          // Horizontal postcards can be smaller or span 2 columns
+          if (index % 3 === 0 && numColumns >= 2) {
+            // Every 3rd horizontal one spans 2 columns
+            spans = 2;
+            itemWidth = actualColumnWidth * 2 + gap;
+            itemHeight = itemWidth / aspectRatio;
+          } else {
+            // Regular horizontal - slightly smaller
+            itemWidth = actualColumnWidth * 0.95;
+            itemHeight = itemWidth / aspectRatio;
+          }
+        } else if (isPortrait) {
+          // Vertical postcards - normal or slightly larger
+          if (index % 4 === 0) {
+            itemWidth = actualColumnWidth * 1.05;
+            itemHeight = itemWidth / aspectRatio;
+          } else {
+            itemWidth = actualColumnWidth;
+            itemHeight = itemWidth / aspectRatio;
+          }
+        } else {
+          // Square-ish
+          itemWidth = actualColumnWidth;
+          itemHeight = actualColumnWidth;
+        }
+
+        // Find shortest column(s) for placement - improved algorithm
+        let targetColumn = 0;
+        if (spans === 1) {
+          // For single column, find the truly shortest
+          targetColumn = columnHeights.indexOf(Math.min(...columnHeights));
+        } else {
+          // For multi-column span, find columns with lowest max height
+          let minMaxHeight = Infinity;
+          for (let i = 0; i <= numColumns - spans; i++) {
+            const maxHeight = Math.max(...columnHeights.slice(i, i + spans));
+            if (maxHeight < minMaxHeight) {
+              minMaxHeight = maxHeight;
+              targetColumn = i;
+            }
+          }
+        }
+
+        // Calculate position - use the max height of the columns we're spanning
+        const baseTop = Math.max(...columnHeights.slice(targetColumn, targetColumn + spans));
+        const left = targetColumn * (actualColumnWidth + gap);
+        // Always add gap from the base top (except for first row)
+        const top = baseTop > 0 ? baseTop + gap : 0;
+
+        // Update column heights - all spanned columns get the same new height
+        // Add gap after the item as well
+        const newHeight = top + itemHeight + gap;
+        for (let i = 0; i < spans; i++) {
+          if (targetColumn + i < numColumns) {
+            columnHeights[targetColumn + i] = newHeight;
+          }
+        }
+
+        positions[index] = { top, left, width: itemWidth };
+      };
+
+      if (frontImg.complete && frontImg.naturalWidth > 0) {
+        calculatePosition();
+      } else {
+        frontImg.addEventListener('load', calculatePosition, { once: true });
+      }
+    });
+
+    // Wait for all images to load, then apply positions
+    const images = galleryGrid.querySelectorAll('.front-image');
+    let loadedCount = 0;
+    const totalImages = images.length;
+
+    const applyMasonry = () => {
+      // Recalculate if window resized
+      const newColumnWidth = getColumnWidth();
+      if (newColumnWidth !== columnWidth) {
+        columnWidth = newColumnWidth;
+        // Recalculate everything
+        setTimeout(applyMasonry, 100);
+        return;
+      }
+
+        // Apply positions with better overlap prevention
+        containers.forEach((container, index) => {
+          const pos = positions[index];
+          if (pos) {
+            const containerEl = container as HTMLElement;
+            containerEl.style.position = 'absolute';
+            containerEl.style.top = pos.top + 'px';
+            containerEl.style.left = pos.left + 'px';
+            containerEl.style.width = pos.width + 'px';
+            containerEl.style.opacity = '1';
+            // Ensure container maintains width during flip
+            containerEl.style.maxWidth = pos.width + 'px';
+            containerEl.style.minWidth = pos.width + 'px';
+            // Prevent overlapping with z-index
+            containerEl.style.zIndex = '1';
+            // Ensure no overflow that could cause overlap
+            containerEl.style.overflow = 'hidden';
+          }
+        });
+
+      // Set gallery height
+      const maxHeight = Math.max(...columnHeights);
+      galleryGrid.style.height = maxHeight + 'px';
+      galleryGrid.classList.add('masonry-ready');
+      galleryGrid.classList.remove('loading');
+    };
+
+    if (totalImages > 0) {
+      images.forEach((img) => {
+        if ((img as HTMLImageElement).complete) {
+          loadedCount++;
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            if (loadedCount === totalImages) {
+              setTimeout(applyMasonry, 50);
+            }
+          }, { once: true });
+        }
+      });
+
+      if (loadedCount === totalImages) {
+        setTimeout(applyMasonry, 50);
+      }
+
+      // Fallback
+      setTimeout(() => {
+        if (!galleryGrid.classList.contains('masonry-ready')) {
+          applyMasonry();
+        }
+      }, 3000);
+    }
+
+    // Handle resize
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        columnHeights.fill(0);
+        positions.length = 0;
+        containers.forEach((container) => {
+          (container as HTMLElement).style.position = '';
+          (container as HTMLElement).style.top = '';
+          (container as HTMLElement).style.left = '';
+          (container as HTMLElement).style.width = '';
+        });
+        galleryGrid.classList.remove('masonry-ready');
+        setTimeout(initMasonry, 100);
+      }, 250);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMasonry);
+  } else {
+    setTimeout(initMasonry, 100);
+  }
+</script>
+
 <style>
   .gallery-container {
     padding: 2rem;
@@ -36,27 +243,28 @@ const { postcards, category } = Astro.props;
   }
 
   .gallery-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
+    position: relative;
     padding: 1rem 0;
-    align-items: start;
+    opacity: 1;
+    transition: opacity 0.3s;
+  }
+
+  .gallery-grid.masonry-ready {
+    /* Remove default grid when masonry is applied */
+  }
+
+  .postcard-container {
+    position: absolute;
+    transition: transform 0.3s, opacity 0.3s;
+  }
+
+  .gallery-grid.loading {
+    opacity: 0.7;
   }
 
   @media (max-width: 768px) {
-    .gallery-grid {
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: 0.5rem;
-    }
-
     .gallery-container {
       padding: 1rem;
-    }
-  }
-
-  @media (min-width: 1200px) {
-    .gallery-grid {
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     }
   }
 </style>

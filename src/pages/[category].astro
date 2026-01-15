@@ -26,10 +26,6 @@ const categories = metadata.categories;
   <body>
     <Sidebar categories={categories} currentCategory={category} />
     <main class="main-content">
-      <div class="category-header">
-        <h1>{categoryData?.name || category}</h1>
-        <p class="postcard-count">{categoryData?.postcards.length || 0} postcards</p>
-      </div>
       {categoryData && (
         <CategoryGallery postcards={categoryData.postcards} category={categoryData.folder} />
       )}
@@ -68,30 +64,6 @@ const categories = metadata.categories;
     padding: 0;
   }
 
-  .lightbox-close {
-    position: absolute;
-    top: -2.5rem;
-    right: 0;
-    background: none;
-    border: none;
-    color: white;
-    font-size: 3rem;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s;
-    z-index: 1001;
-  }
-
-  .lightbox-close:hover {
-    opacity: 0.7;
-  }
-
   .lightbox-nav {
     position: absolute;
     top: 50%;
@@ -106,22 +78,33 @@ const categories = metadata.categories;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: opacity 0.5s, background 0.2s, transform 0.2s;
     z-index: 1001;
     border-radius: 50%;
+    opacity: 0;
+  }
+
+  .lightbox.active .lightbox-nav {
+    opacity: 1;
   }
 
   .lightbox-nav:hover {
     background: rgba(0, 0, 0, 0.8);
     transform: translateY(-50%) scale(1.1);
+    opacity: 1 !important;
   }
 
   .lightbox-prev {
-    left: 1rem;
+    left: 2rem;
   }
 
   .lightbox-next {
-    right: 1rem;
+    right: 2rem;
+  }
+
+  /* Fade out arrows when mouse is idle */
+  .lightbox.idle .lightbox-nav {
+    opacity: 0;
   }
 
   @media (max-width: 768px) {
@@ -171,13 +154,6 @@ const categories = metadata.categories;
     display: block;
   }
 
-  .lightbox-label {
-    color: white;
-    text-align: center;
-    font-size: 1.1rem;
-    font-weight: 500;
-    margin: 0;
-  }
 
   @media (max-width: 768px) {
     .lightbox-images {
@@ -197,39 +173,13 @@ const categories = metadata.categories;
 
 <style>
   .main-content {
-    margin-left: 250px;
-    min-height: 100vh;
-  }
-
-  .category-header {
-    padding: 2rem 2rem 1rem;
-    max-width: 1400px;
-    margin: 0 auto;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .category-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-    color: var(--text-color);
-  }
-
-  .postcard-count {
-    color: #6c757d;
-    font-size: 1.1rem;
+    margin-top: 50px;
+    min-height: calc(100vh - 50px);
   }
 
   @media (max-width: 768px) {
     .main-content {
       margin-left: 0;
-    }
-
-    .category-header {
-      padding: 1.5rem 1rem 1rem;
-    }
-
-    .category-header h1 {
-      font-size: 2rem;
     }
   }
 </style>
