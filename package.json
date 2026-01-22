@@ -6,6 +6,7 @@
     "dev": "tsx src/scripts/copy-images.ts && astro dev",
     "start": "astro dev",
     "prebuild": "tsx src/scripts/generate-metadata.ts && tsx src/scripts/copy-images.ts",
+    "generate-thumbnails": "tsx src/scripts/generate-thumbnails.ts",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
     "@types/node": "^20.0.0",
+    "sharp": "^0.33.5",
     "tsx": "^4.7.0",
     "typescript": "^5.0.0"
   }

@@ -14,8 +14,10 @@ const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
 
 // Group categories by section
 const locationCategories = ['Asia', 'Austria', 'Canada', 'Egypt', 'Germany', 'Ireland', 'Italy', 'Paris', 'France', 'Switzerland', 'United_Kingdom', 'Other_Europe', 'Other_World'];
-const otherCategories = categories.filter(cat => !locationCategories.includes(cat.folder));
+const noveltyCategories = ['Hold-to-light', 'Hold_to_light'];
+const otherCategories = categories.filter(cat => !locationCategories.includes(cat.folder) && !noveltyCategories.includes(cat.folder));
 const locations = categories.filter(cat => locationCategories.includes(cat.folder));
+const novelty = categories.filter(cat => noveltyCategories.includes(cat.folder));
 ---
 
 <aside class="sidebar">
@@ -32,6 +34,25 @@ const locations = categories.filter(cat => locationCategories.includes(cat.folde
         </button>
         <div class="nav-dropdown-menu" id="locations-menu">
           {locations.map((category) => (
+            <a
+              href={`${basePath}/${category.folder}`}
+              class={`nav-link nav-link-dropdown ${currentCategory === category.folder ? 'active' : ''}`}
+            >
+              {category.name}
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+    
+    {novelty.length > 0 && (
+      <div class="nav-dropdown">
+        <button class="nav-link nav-dropdown-toggle" id="novelty-toggle">
+          Novelty
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="nav-dropdown-menu" id="novelty-menu">
+          {novelty.map((category) => (
             <a
               href={`${basePath}/${category.folder}`}
               class={`nav-link nav-link-dropdown ${currentCategory === category.folder ? 'active' : ''}`}
@@ -87,9 +108,6 @@ const locations = categories.filter(cat => locationCategories.includes(cat.folde
     overflow: visible;
   }
 
-  .sidebar.hidden {
-    transform: translateY(-100%);
-  }
 
   .sidebar-nav {
     display: flex;
@@ -282,8 +300,8 @@ const locations = categories.filter(cat => locationCategories.includes(cat.folde
       clearTimeout(hoverTimeout);
       navDropdown.classList.add('open');
       const toggleRect = locationsToggle.getBoundingClientRect();
-      (locationsMenu as HTMLElement).style.top = (toggleRect.bottom + window.scrollY) + 'px';
-      (locationsMenu as HTMLElement).style.left = (toggleRect.left + window.scrollX) + 'px';
+      (locationsMenu as HTMLElement).style.top = toggleRect.bottom + 'px';
+      (locationsMenu as HTMLElement).style.left = toggleRect.left + 'px';
     };
 
     const closeDropdown = () => {
@@ -330,8 +348,8 @@ const locations = categories.filter(cat => locationCategories.includes(cat.folde
     const repositionDropdown = () => {
       if (navDropdown.classList.contains('open')) {
         const toggleRect = locationsToggle.getBoundingClientRect();
-        (locationsMenu as HTMLElement).style.top = (toggleRect.bottom + window.scrollY) + 'px';
-        (locationsMenu as HTMLElement).style.left = (toggleRect.left + window.scrollX) + 'px';
+        (locationsMenu as HTMLElement).style.top = toggleRect.bottom + 'px';
+        (locationsMenu as HTMLElement).style.left = toggleRect.left + 'px';
       }
     };
 
@@ -350,6 +368,82 @@ const locations = categories.filter(cat => locationCategories.includes(cat.folde
     dropdownLinks.forEach(link => {
       link.addEventListener('click', () => {
         navDropdown.classList.remove('open');
+      });
+    });
+  }
+
+  // Handle Novelty dropdown toggle
+  const noveltyToggle = document.getElementById('novelty-toggle');
+  const noveltyMenu = document.getElementById('novelty-menu');
+  const noveltyDropdown = noveltyToggle?.closest('.nav-dropdown');
+
+  if (noveltyToggle && noveltyDropdown && noveltyMenu) {
+    let hoverTimeout: ReturnType<typeof setTimeout>;
+    
+    const openDropdown = () => {
+      clearTimeout(hoverTimeout);
+      noveltyDropdown.classList.add('open');
+      const toggleRect = noveltyToggle.getBoundingClientRect();
+      (noveltyMenu as HTMLElement).style.top = toggleRect.bottom + 'px';
+      (noveltyMenu as HTMLElement).style.left = toggleRect.left + 'px';
+    };
+
+    const closeDropdown = () => {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = setTimeout(() => {
+        noveltyDropdown.classList.remove('open');
+      }, 150);
+    };
+
+    noveltyToggle.addEventListener('mouseenter', () => {
+      openDropdown();
+    });
+
+    noveltyMenu.addEventListener('mouseenter', () => {
+      clearTimeout(hoverTimeout);
+    });
+
+    noveltyMenu.addEventListener('mouseleave', () => {
+      closeDropdown();
+    });
+
+    noveltyToggle.addEventListener('mouseleave', (e) => {
+      const relatedTarget = e.relatedTarget as Node;
+      if (!noveltyMenu.contains(relatedTarget)) {
+        closeDropdown();
+      }
+    });
+
+    noveltyToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (noveltyDropdown.classList.contains('open')) {
+        noveltyDropdown.classList.remove('open');
+      } else {
+        openDropdown();
+      }
+    });
+
+    const repositionDropdown = () => {
+      if (noveltyDropdown.classList.contains('open')) {
+        const toggleRect = noveltyToggle.getBoundingClientRect();
+        (noveltyMenu as HTMLElement).style.top = toggleRect.bottom + 'px';
+        (noveltyMenu as HTMLElement).style.left = toggleRect.left + 'px';
+      }
+    };
+
+    window.addEventListener('scroll', repositionDropdown, { passive: true });
+    window.addEventListener('resize', repositionDropdown);
+
+    document.addEventListener('click', (e) => {
+      if (!noveltyDropdown.contains(e.target as Node)) {
+        noveltyDropdown.classList.remove('open');
+      }
+    });
+
+    const noveltyLinks = noveltyMenu.querySelectorAll('.nav-link-dropdown');
+    noveltyLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        noveltyDropdown.classList.remove('open');
       });
     });
   }
@@ -375,32 +469,4 @@ const locations = categories.filter(cat => locationCategories.includes(cat.folde
     document.documentElement.setAttribute('data-hover-enabled', hoverToggle.checked.toString());
   }
 
-  // Auto-hide top bar on scroll
-  const sidebar = document.querySelector('.sidebar') as HTMLElement;
-  if (sidebar) {
-    let lastScrollY = window.scrollY;
-    let ticking = false;
-
-    const updateSidebar = () => {
-      const currentScrollY = window.scrollY;
-      
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-        // Scrolling down - hide
-        sidebar.classList.add('hidden');
-      } else if (currentScrollY < lastScrollY) {
-        // Scrolling up - show
-        sidebar.classList.remove('hidden');
-      }
-      
-      lastScrollY = currentScrollY;
-      ticking = false;
-    };
-
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        window.requestAnimationFrame(updateSidebar);
-        ticking = true;
-      }
-    }, { passive: true });
-  }
 </script>

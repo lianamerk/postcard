@@ -24,6 +24,22 @@ const base = import.meta.env.BASE_URL;
 const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
 const frontPath = `${basePath}/${category}/${postcard.front}`;
 const backPath = `${basePath}/${category}/${postcard.back}`;
+
+// For Hold-to-light: base name shows on page, _002 on hover, _001 in lightbox
+const isHoldToLight = category === 'Hold-to-light' || category === 'Hold_to_light';
+let hoverBackPath = backPath; // Default to _001
+let lightboxBackPath = backPath; // Default to _001
+
+if (isHoldToLight) {
+  // Front is base name (no suffix), back is _001
+  // For hover, construct _002 path from front image name
+  const baseName = postcard.front.replace(/\.(png|jpg|jpeg|webp)$/i, '');
+  const ext = postcard.front.match(/\.(png|jpg|jpeg|webp)$/i)?.[1] || 'png';
+  // Hover shows _002 (shine-through)
+  hoverBackPath = `${basePath}/${category}/${baseName}_002.${ext}`;
+  // Lightbox shows base name (front) + _001 (back)
+  lightboxBackPath = backPath; // This should already be _001
+}
 ---
 
 <div 
@@ -32,6 +48,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
   data-index={index}
   data-total={total}
   data-category={category}
+  data-no-flip={category === 'Hold-to-light' || category === 'Hold_to_light' ? 'true' : 'false'}
 >
   <div class="postcard-flip">
     <div class="postcard-front">
@@ -47,11 +64,13 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     <div class="postcard-back">
       <div class="image-placeholder"></div>
       <img 
-        src={backPath} 
+        src={isHoldToLight ? hoverBackPath : backPath} 
+        data-lightbox-back={lightboxBackPath}
         alt={`${postcard.name} - Back`}
         loading="lazy"
         class="back-image"
         decoding="async"
+        onerror={isHoldToLight ? `this.src='${backPath}';this.onerror=null;` : undefined}
       />
     </div>
   </div>
@@ -66,6 +85,16 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
       const frontImg = container.querySelector('.front-image') as HTMLImageElement | null;
       const backDiv = container.querySelector('.postcard-back') as HTMLElement | null;
       const backImg = container.querySelector('.back-image') as HTMLImageElement | null;
+      
+      // Check if this is a no-flip postcard (Hold-to-light)
+      const noFlip = container.getAttribute('data-no-flip') === 'true';
+      
+      // For no-flip postcards, ensure back image is positioned correctly
+      if (noFlip && backDiv) {
+        backDiv.style.position = 'absolute';
+        backDiv.style.top = '0';
+        backDiv.style.left = '0';
+      }
       
       if (frontImg && backDiv && backImg) {
         // Handle image loading with fade-in effect
@@ -152,7 +181,8 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
         
         // Get paths from img src (already includes base path)
         const frontPath = frontImgEl.getAttribute('src') || '';
-        const backPath = backImgEl.getAttribute('src') || '';
+        // For Hold-to-light, use data-lightbox-back if available (the _001 back), otherwise use src
+        const backPath = backImgEl.getAttribute('data-lightbox-back') || backImgEl.getAttribute('src') || '';
         const name = frontImgEl.getAttribute('alt')?.replace(' - Front', '') || '';
         
         if (!frontPath || !backPath) return;
@@ -166,6 +196,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           lightbox.className = 'lightbox';
           lightbox.innerHTML = `
             <div class="lightbox-content">
+              <button class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
               <button class="lightbox-nav lightbox-prev" id="lightbox-prev" ${currentIndex === 0 ? 'style="display:none"' : ''}>&#8249;</button>
               <button class="lightbox-nav lightbox-next" id="lightbox-next" ${currentIndex >= totalPostcards - 1 ? 'style="display:none"' : ''}>&#8250;</button>
               <div class="lightbox-images">
@@ -187,8 +218,21 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           lb.categoryName = categoryName;
           
           // Add event listeners
+          const closeBtn = lightbox.querySelector('#lightbox-close') as HTMLElement | null;
           const prevBtn = lightbox.querySelector('#lightbox-prev') as HTMLElement | null;
           const nextBtn = lightbox.querySelector('#lightbox-next') as HTMLElement | null;
+          
+          // Close button handler
+          if (closeBtn) {
+            closeBtn.setAttribute('data-listener-attached', 'true');
+            closeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (lightbox) {
+                lightbox.classList.remove('active');
+                document.body.style.overflow = '';
+              }
+            });
+          }
           
           // Navigation function
           const navigatePostcard = (direction: number) => {
@@ -208,7 +252,8 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
             if (!frontImg || !backImg) return;
             
             const newFrontPath = frontImg.getAttribute('src') || '';
-            const newBackPath = backImg.getAttribute('src') || '';
+            // For Hold-to-light, use data-lightbox-back if available (the _001 back), otherwise use src
+            const newBackPath = backImg.getAttribute('data-lightbox-back') || backImg.getAttribute('src') || '';
             
             // Update lightbox images
             const lightboxFront = lb.querySelector('#lightbox-front') as HTMLImageElement | null;
@@ -267,13 +312,43 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
           lb.totalPostcards = totalPostcards;
           lb.categoryName = categoryName;
           
+          // Ensure close button exists
+          let closeBtn = lightbox.querySelector('#lightbox-close') as HTMLElement | null;
+          if (!closeBtn) {
+            const lightboxContent = lightbox.querySelector('.lightbox-content');
+            if (lightboxContent) {
+              closeBtn = document.createElement('button');
+              closeBtn.id = 'lightbox-close';
+              closeBtn.className = 'lightbox-close';
+              closeBtn.setAttribute('aria-label', 'Close');
+              closeBtn.textContent = '×';
+              lightboxContent.insertBefore(closeBtn, lightboxContent.firstChild);
+            }
+          }
+          
+          // Reattach close button handler if needed
+          if (closeBtn && !closeBtn.hasAttribute('data-listener-attached')) {
+            closeBtn.setAttribute('data-listener-attached', 'true');
+            closeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (lightbox) {
+                lightbox.classList.remove('active');
+                document.body.style.overflow = '';
+              }
+            });
+          }
+          
           const frontImg = lightbox.querySelector('#lightbox-front') as HTMLImageElement | null;
           const backImg = lightbox.querySelector('#lightbox-back') as HTMLImageElement | null;
           const prevBtn = lightbox.querySelector('#lightbox-prev') as HTMLElement | null;
           const nextBtn = lightbox.querySelector('#lightbox-next') as HTMLElement | null;
           
+          // Get the correct back path (for Hold-to-light, use data-lightbox-back)
+          const backImgEl = container.querySelector('.back-image') as HTMLImageElement | null;
+          const correctBackPath = backImgEl?.getAttribute('data-lightbox-back') || backPath;
+          
           if (frontImg) frontImg.src = frontPath;
-          if (backImg) backImg.src = backPath;
+          if (backImg) backImg.src = correctBackPath;
           if (prevBtn) prevBtn.style.display = currentIndex === 0 ? 'none' : 'flex';
           if (nextBtn) nextBtn.style.display = currentIndex >= totalPostcards - 1 ? 'none' : 'flex';
         }
@@ -335,7 +410,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     transition: transform 0.6s;
   }
 
-  html[data-hover-enabled="true"] .postcard-container:hover .postcard-flip {
+  html[data-hover-enabled="true"] .postcard-container:not([data-no-flip="true"]):hover .postcard-flip {
     transform: rotateY(180deg);
   }
 
@@ -346,7 +421,7 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     border-radius: 4px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.3s;
+    transition: box-shadow 0.3s, opacity 0.2s;
   }
   
   .postcard-back {
@@ -358,8 +433,23 @@ const backPath = `${basePath}/${category}/${postcard.back}`;
     border-radius: 4px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.3s;
+    transition: box-shadow 0.3s, opacity 0.2s;
     transform: rotateY(180deg);
+  }
+
+  /* For no-flip postcards (Hold-to-light): no rotation, just opacity swap */
+  .postcard-container[data-no-flip="true"] .postcard-back {
+    transform: none;
+    backface-visibility: visible;
+    opacity: 0;
+  }
+
+  html[data-hover-enabled="true"] .postcard-container[data-no-flip="true"]:hover .postcard-front {
+    opacity: 0;
+  }
+
+  html[data-hover-enabled="true"] .postcard-container[data-no-flip="true"]:hover .postcard-back {
+    opacity: 1;
   }
 
   .postcard-container:hover .postcard-front,

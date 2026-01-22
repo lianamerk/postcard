@@ -12,10 +12,14 @@ interface Props {
 }
 
 const { postcards, category } = Astro.props;
+
+// Determine initial visible count based on category
+const isHoldToLight = category === 'Hold-to-light' || category === 'Hold_to_light';
+const initialVisibleCount = isHoldToLight ? 5 : 10;
 ---
 
 <div class="gallery-container">
-  <div class="gallery-grid" id="gallery-grid">
+  <div class="gallery-grid" id="gallery-grid" data-category={category}>
     {postcards.map((postcard, index) => (
       <PostcardThumbnail 
         postcard={postcard} 
@@ -34,6 +38,12 @@ const { postcards, category } = Astro.props;
     if (!galleryGrid) return;
 
     galleryGrid.classList.add('loading');
+    
+    // Store initial visible count on gallery grid
+    const isHoldToLight = galleryGrid.getAttribute('data-category') === 'Hold-to-light' || 
+                          galleryGrid.getAttribute('data-category') === 'Hold_to_light';
+    const initialVisibleCount = isHoldToLight ? 5 : 10;
+    (galleryGrid as HTMLElement & { initialVisibleCount?: number }).initialVisibleCount = initialVisibleCount;
 
     const containers = galleryGrid.querySelectorAll('.postcard-container');
     if (containers.length === 0) return;
@@ -56,14 +66,21 @@ const { postcards, category } = Astro.props;
     const columnHeights = new Array(numColumns).fill(0);
     const positions: Array<{ top: number; left: number; width: number }> = [];
 
-    // First pass: calculate positions based on image aspect ratios
+    // First pass: calculate positions based on thumbnail aspect ratios
+    // Thumbnails preserve aspect ratio, so we can use them for layout
     containers.forEach((container, index) => {
       const frontImg = container.querySelector('.front-image') as HTMLImageElement | null;
       if (!frontImg) return;
 
-        const calculatePosition = () => {
-        // Get natural aspect ratio
-        const aspectRatio = frontImg.naturalWidth / frontImg.naturalHeight;
+      const calculatePosition = () => {
+        // Use thumbnail dimensions - they preserve aspect ratio
+        const naturalWidth = frontImg.naturalWidth;
+        const naturalHeight = frontImg.naturalHeight;
+        
+        if (naturalWidth === 0 || naturalHeight === 0) return;
+        
+        // Get natural aspect ratio from thumbnail (preserves original aspect ratio)
+        const aspectRatio = naturalWidth / naturalHeight;
         const isLandscape = aspectRatio > 1.1;
         const isPortrait = aspectRatio < 0.9;
 
@@ -134,10 +151,41 @@ const { postcards, category } = Astro.props;
         positions[index] = { top, left, width: itemWidth };
       };
 
+      // Wait for thumbnail to load
       if (frontImg.complete && frontImg.naturalWidth > 0) {
         calculatePosition();
       } else {
         frontImg.addEventListener('load', calculatePosition, { once: true });
+      }
+    });
+
+    // Progressive loading: show images as they come into view
+    const observerOptions = {
+      root: null,
+      rootMargin: '300px', // Start loading 300px before entering viewport
+      threshold: 0.01
+    };
+
+    const imageObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const container = entry.target.closest('.postcard-container') as HTMLElement;
+          if (container) {
+            container.style.opacity = '1';
+            imageObserver.unobserve(entry.target);
+          }
+        }
+      });
+    }, observerOptions);
+
+    // Initially hide all containers until masonry positions them
+    containers.forEach((container, index) => {
+      const containerEl = container as HTMLElement;
+      containerEl.style.opacity = '0';
+      containerEl.style.visibility = 'hidden'; // Also hide to prevent layout flash
+      const frontImg = container.querySelector('.front-image');
+      if (frontImg) {
+        imageObserver.observe(frontImg);
       }
     });
 
@@ -156,25 +204,30 @@ const { postcards, category } = Astro.props;
         return;
       }
 
-        // Apply positions with better overlap prevention
-        containers.forEach((container, index) => {
-          const pos = positions[index];
-          if (pos) {
-            const containerEl = container as HTMLElement;
-            containerEl.style.position = 'absolute';
-            containerEl.style.top = pos.top + 'px';
-            containerEl.style.left = pos.left + 'px';
-            containerEl.style.width = pos.width + 'px';
+      // Apply positions with better overlap prevention
+      containers.forEach((container, index) => {
+        const pos = positions[index];
+        if (pos) {
+          const containerEl = container as HTMLElement;
+          containerEl.style.position = 'absolute';
+          containerEl.style.top = pos.top + 'px';
+          containerEl.style.left = pos.left + 'px';
+          containerEl.style.width = pos.width + 'px';
+          containerEl.style.visibility = 'visible'; // Make visible after positioning
+          // Show initial count immediately, rest will show via IntersectionObserver
+          const initialCount = (galleryGrid as HTMLElement & { initialVisibleCount?: number }).initialVisibleCount || 10;
+          if (index < initialCount) {
             containerEl.style.opacity = '1';
-            // Ensure container maintains width during flip
-            containerEl.style.maxWidth = pos.width + 'px';
-            containerEl.style.minWidth = pos.width + 'px';
-            // Prevent overlapping with z-index
-            containerEl.style.zIndex = '1';
-            // Ensure no overflow that could cause overlap
-            containerEl.style.overflow = 'hidden';
           }
-        });
+          // Ensure container maintains width during flip
+          containerEl.style.maxWidth = pos.width + 'px';
+          containerEl.style.minWidth = pos.width + 'px';
+          // Prevent overlapping with z-index
+          containerEl.style.zIndex = '1';
+          // Ensure no overflow that could cause overlap
+          containerEl.style.overflow = 'hidden';
+        }
+      });
 
       // Set gallery height
       const maxHeight = Math.max(...columnHeights);

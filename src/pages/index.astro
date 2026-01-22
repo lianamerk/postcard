@@ -75,8 +75,41 @@ const categories = metadata.categories;
     right: 2rem;
   }
 
-  /* Fade out arrows when mouse is idle */
-  .lightbox.idle .lightbox-nav {
+  .lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: white;
+    font-size: 2.5rem;
+    cursor: pointer;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s, background 0.2s, transform 0.2s;
+    z-index: 1002;
+    border-radius: 50%;
+    line-height: 1;
+    padding: 0;
+    opacity: 0;
+  }
+
+  .lightbox.active .lightbox-close {
+    opacity: 1;
+  }
+
+  .lightbox-close:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+    opacity: 1 !important;
+  }
+
+  /* Fade out arrows and close button when mouse is idle */
+  .lightbox.idle .lightbox-nav,
+  .lightbox.idle .lightbox-close {
     opacity: 0;
   }
 
