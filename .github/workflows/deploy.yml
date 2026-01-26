@@ -30,18 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Generate metadata
-        run: npm run generate-metadata
-      
-      - name: Copy category folders to public
-        run: |
-          for dir in cat*/; do
-            if [ -d "$dir" ]; then
-              cp -r "$dir" public/
-            fi
-          done
-      
-      - name: Build
+      - name: Build (generates metadata and optimizes images)
         run: npm run build
       
       - name: Upload artifact

@@ -32,6 +32,9 @@ src/data/metadata.json
 /[A-Z]*_*/
 /[A-Z]*-*/
 
+# Exclude thumbnail directories (not used, generated during build if needed)
+public/*/thumbs/
+
 # Documentation files (reference/notes - not needed in repo)
 PERFORMANCE_OPTIMIZATION.md
 CLOUDINARY_VS_CLOUDFLARE.md
