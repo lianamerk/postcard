@@ -15,7 +15,6 @@ const { postcards, category } = Astro.props;
 
 // Determine initial visible count based on category
 const isHoldToLight = category === 'Hold-to-light' || category === 'Hold_to_light';
-const initialVisibleCount = isHoldToLight ? 5 : 10;
 ---
 
 <div class="gallery-container">

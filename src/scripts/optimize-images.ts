@@ -103,14 +103,11 @@ async function processCategory(categoryFolder: string): Promise<void> {
     const rootImages = rootFiles.filter(file => /\.(png|jpg|jpeg)$/i.test(file));
     if (rootImages.length > 0) {
       categoryPath = rootCategoryPath;
-      sourcePath = rootCategoryPath;
     } else {
       categoryPath = publicCategoryPath;
-      sourcePath = publicCategoryPath;
     }
   } else {
     categoryPath = publicCategoryPath;
-    sourcePath = publicCategoryPath;
   }
   
   if (!fs.existsSync(categoryPath)) {
