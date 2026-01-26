@@ -27,7 +27,6 @@ const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
 // Uses optimized version as fallback (originals are not stored in public/)
 function getImagePaths(imageName: string, category: string) {
   const baseName = imageName.replace(/\.(png|jpg|jpeg|webp)$/i, '');
-  const ext = imageName.match(/\.(png|jpg|jpeg|webp)$/i)?.[1] || 'png';
   const webpPath = `${basePath}/${category}/webp/${baseName}.webp`;
   const optimizedPath = `${basePath}/${category}/optimized/${imageName}`;
   // Use optimized as fallback (originals removed to save space)
@@ -191,20 +190,21 @@ if (isHoldToLight) {
       }
       
       // Helper function to get WebP and fallback paths from picture element
-      function getImagePathsFromPicture(img: HTMLImageElement | null): { webp: string; fallback: string; type: string } | null {
+      function getImagePathsFromPicture(img: HTMLImageElement | null): { webp: string; optimized: string; fallback: string; type: string } | null {
         if (!img) return null;
         const picture = img.closest('picture');
         if (!picture) {
           // Fallback: if no picture element, use img src
           const src = img.getAttribute('src') || '';
-          return { webp: src, fallback: src, type: 'png' };
+          return { webp: src, optimized: src, fallback: src, type: 'png' };
         }
         const webpSource = picture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
         const fallbackSource = picture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
         const webp = webpSource?.getAttribute('srcset') || img.getAttribute('src') || '';
-        const fallback = fallbackSource?.getAttribute('srcset') || img.getAttribute('src') || '';
+        const optimized = fallbackSource?.getAttribute('srcset') || img.getAttribute('src') || '';
+        const fallback = img.getAttribute('src') || optimized;
         const type = fallback.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png';
-        return { webp, fallback, type };
+        return { webp, optimized, fallback, type };
       }
       
       // Click handler for lightbox
@@ -226,7 +226,7 @@ if (isHoldToLight) {
               const webpPath = backImgEl.getAttribute('data-lightbox-back-webp') || '';
               const optimizedPath = backImgEl.getAttribute('data-lightbox-back-optimized') || '';
               const fallbackPath = backImgEl.getAttribute('data-lightbox-back') || '';
-              return { webp: webpPath, optimized: optimizedPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
+              return { webp: webpPath, optimized: optimizedPath || fallbackPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
             })()
           : getImagePathsFromPicture(backImgEl);
         
@@ -313,7 +313,7 @@ if (isHoldToLight) {
                   const webpPath = backImg.getAttribute('data-lightbox-back-webp') || '';
                   const optimizedPath = backImg.getAttribute('data-lightbox-back-optimized') || '';
                   const fallbackPath = backImg.getAttribute('data-lightbox-back') || '';
-                  return { webp: webpPath, optimized: optimizedPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
+                  return { webp: webpPath, optimized: optimizedPath || fallbackPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
                 })()
               : getImagePathsFromPicture(backImg);
             
@@ -432,7 +432,7 @@ if (isHoldToLight) {
                 const webpPath = backImgEl.getAttribute('data-lightbox-back-webp') || '';
                 const optimizedPath = backImgEl.getAttribute('data-lightbox-back-optimized') || '';
                 const fallbackPath = backImgEl.getAttribute('data-lightbox-back') || '';
-                return { webp: webpPath, optimized: optimizedPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
+                return { webp: webpPath, optimized: optimizedPath || fallbackPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
               })()
             : getImagePathsFromPicture(backImgEl);
           

@@ -53,7 +53,6 @@ async function optimizeImage(
     // Sharp by default auto-rotates based on EXIF, but we want to keep images as-is
     // Use .withMetadata() to preserve EXIF, OR disable auto-orientation
     const image = sharp(sourcePath, { failOnError: false });
-    const metadata = await image.metadata();
     
     // Disable auto-orientation by using .rotate() with no arguments
     // This tells sharp to NOT auto-rotate based on EXIF orientation
@@ -98,7 +97,6 @@ async function processCategory(categoryFolder: string): Promise<void> {
   
   // Use root folder if it exists and has images, otherwise use public/
   let categoryPath: string;
-  let sourcePath: string;
   
   if (fs.existsSync(rootCategoryPath)) {
     const rootFiles = fs.readdirSync(rootCategoryPath);

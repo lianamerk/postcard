@@ -15,7 +15,7 @@ const { postcards, category } = Astro.props;
 
 // Determine initial visible count based on category
 const isHoldToLight = category === 'Hold-to-light' || category === 'Hold_to_light';
-const initialVisibleCount = isHoldToLight ? 5 : 10;
+// Note: initialVisibleCount is used in the progressive loading logic below
 ---
 
 <div class="gallery-container">
@@ -179,7 +179,7 @@ const initialVisibleCount = isHoldToLight ? 5 : 10;
     }, observerOptions);
 
     // Initially hide all containers until masonry positions them
-    containers.forEach((container, index) => {
+    containers.forEach((container) => {
       const containerEl = container as HTMLElement;
       containerEl.style.opacity = '0';
       containerEl.style.visibility = 'hidden'; // Also hide to prevent layout flash

@@ -39,8 +39,26 @@ function findCategoryFolders(publicDir: string): string[] {
     .sort();
 }
 
-function findPostcardPairs(categoryPath: string): Postcard[] {
-  const files = fs.readdirSync(categoryPath);
+function findPostcardPairs(categoryPath: string, rootDir: string, categoryFolder: string): Postcard[] {
+  // Check optimized folder first (where images are now stored)
+  const optimizedPath = path.join(categoryPath, 'optimized');
+  let files: string[] = [];
+  
+  if (fs.existsSync(optimizedPath)) {
+    files = fs.readdirSync(optimizedPath);
+  } else {
+    // Fallback: check root category folder (untracked source images)
+    const rootCategoryPath = path.join(rootDir, categoryFolder);
+    if (fs.existsSync(rootCategoryPath)) {
+      files = fs.readdirSync(rootCategoryPath);
+    } else {
+      // Last resort: check categoryPath directly (might have some files)
+      if (fs.existsSync(categoryPath)) {
+        files = fs.readdirSync(categoryPath);
+      }
+    }
+  }
+  
   const postcards: Postcard[] = [];
 
   // Group files by base name
@@ -94,14 +112,14 @@ function findPostcardPairs(categoryPath: string): Postcard[] {
   return postcards.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function generateMetadata(publicDir: string): Metadata {
+function generateMetadata(publicDir: string, rootDir: string): Metadata {
   const categoryFolders = findCategoryFolders(publicDir);
   const categories: Category[] = [];
   let totalPostcards = 0;
 
   for (const folder of categoryFolders) {
     const categoryPath = path.join(publicDir, folder);
-    const postcards = findPostcardPairs(categoryPath);
+    const postcards = findPostcardPairs(categoryPath, rootDir, folder);
 
     if (postcards.length > 0) {
       // Replace underscores with spaces in display name, but keep folder name as-is
@@ -126,7 +144,7 @@ function generateMetadata(publicDir: string): Metadata {
 // Read from public/ directory - images should be placed directly in public/
 const rootDir = process.cwd();
 const publicDir = path.join(rootDir, 'public');
-const metadata = generateMetadata(publicDir);
+const metadata = generateMetadata(publicDir, rootDir);
 const outputPath = path.join(rootDir, 'src/data/metadata.json');
 
 // Ensure data directory exists
