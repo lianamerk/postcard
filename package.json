@@ -3,10 +3,11 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "tsx src/scripts/copy-images.ts && astro dev",
+    "dev": "astro dev",
     "start": "astro dev",
-    "prebuild": "tsx src/scripts/generate-metadata.ts && tsx src/scripts/copy-images.ts",
+    "prebuild": "tsx src/scripts/generate-metadata.ts && tsx src/scripts/optimize-images.ts",
     "generate-thumbnails": "tsx src/scripts/generate-thumbnails.ts",
+    "optimize-images": "tsx src/scripts/optimize-images.ts",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",

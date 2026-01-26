@@ -23,3 +23,19 @@ pnpm-debug.log*
 
 # metadata (generated)
 src/data/metadata.json
+
+# Category folders in root directory (images are in public/ instead)
+# These are optional source folders - images should go directly in public/
+# Use wildcard to ignore any category folder in root
+# (but allow public/ folders to be tracked)
+/[A-Z]*/
+/[A-Z]*_*/
+/[A-Z]*-*/
+
+# Documentation files (reference/notes - not needed in repo)
+PERFORMANCE_OPTIMIZATION.md
+CLOUDINARY_VS_CLOUDFLARE.md
+WORKFLOW.md
+DEPLOYMENT.md
+ENABLE_PAGES.md
+CUSTOM_DOMAIN_SETUP.md

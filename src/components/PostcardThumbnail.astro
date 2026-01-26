@@ -22,23 +22,36 @@ const { postcard, category, index, total } = Astro.props;
 const base = import.meta.env.BASE_URL;
 // Ensure proper path joining (BASE_URL ends with /, so we need to handle it)
 const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
-const frontPath = `${basePath}/${category}/${postcard.front}`;
-const backPath = `${basePath}/${category}/${postcard.back}`;
+
+// Helper function to generate WebP and optimized paths
+// Falls back to original if optimized versions don't exist
+function getImagePaths(imageName: string, category: string) {
+  const baseName = imageName.replace(/\.(png|jpg|jpeg|webp)$/i, '');
+  const ext = imageName.match(/\.(png|jpg|jpeg|webp)$/i)?.[1] || 'png';
+  const originalPath = `${basePath}/${category}/${imageName}`;
+  const webpPath = `${basePath}/${category}/webp/${baseName}.webp`;
+  const optimizedPath = `${basePath}/${category}/optimized/${imageName}`;
+  // Use original as fallback if optimized doesn't exist
+  return { originalPath, webpPath, optimizedPath, fallbackPath: originalPath };
+}
+
+const frontPaths = getImagePaths(postcard.front, category);
+const backPaths = getImagePaths(postcard.back, category);
 
 // For Hold-to-light: base name shows on page, _002 on hover, _001 in lightbox
 const isHoldToLight = category === 'Hold-to-light' || category === 'Hold_to_light';
-let hoverBackPath = backPath; // Default to _001
-let lightboxBackPath = backPath; // Default to _001
+let hoverBackPaths = backPaths; // Default to _001
+let lightboxBackPaths = backPaths; // Default to _001
 
 if (isHoldToLight) {
   // Front is base name (no suffix), back is _001
   // For hover, construct _002 path from front image name
   const baseName = postcard.front.replace(/\.(png|jpg|jpeg|webp)$/i, '');
   const ext = postcard.front.match(/\.(png|jpg|jpeg|webp)$/i)?.[1] || 'png';
-  // Hover shows _002 (shine-through)
-  hoverBackPath = `${basePath}/${category}/${baseName}_002.${ext}`;
+  const hoverImageName = `${baseName}_002.${ext}`;
+  hoverBackPaths = getImagePaths(hoverImageName, category);
   // Lightbox shows base name (front) + _001 (back)
-  lightboxBackPath = backPath; // This should already be _001
+  lightboxBackPaths = backPaths; // This should already be _001
 }
 ---
 
@@ -53,25 +66,35 @@ if (isHoldToLight) {
   <div class="postcard-flip">
     <div class="postcard-front">
       <div class="image-placeholder"></div>
-      <img 
-        src={frontPath} 
-        alt={`${postcard.name} - Front`}
-        loading="lazy"
-        class="front-image"
-        decoding="async"
-      />
+      <picture>
+        <source srcset={frontPaths.webpPath} type="image/webp" />
+        <source srcset={frontPaths.optimizedPath} type={`image/${frontPaths.optimizedPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png'}`} />
+        <img 
+          src={frontPaths.originalPath} 
+          alt={`${postcard.name} - Front`}
+          loading="lazy"
+          class="front-image"
+          decoding="async"
+        />
+      </picture>
     </div>
     <div class="postcard-back">
       <div class="image-placeholder"></div>
-      <img 
-        src={isHoldToLight ? hoverBackPath : backPath} 
-        data-lightbox-back={lightboxBackPath}
-        alt={`${postcard.name} - Back`}
-        loading="lazy"
-        class="back-image"
-        decoding="async"
-        onerror={isHoldToLight ? `this.src='${backPath}';this.onerror=null;` : undefined}
-      />
+      <picture>
+        <source srcset={isHoldToLight ? hoverBackPaths.webpPath : backPaths.webpPath} type="image/webp" />
+        <source srcset={isHoldToLight ? hoverBackPaths.optimizedPath : backPaths.optimizedPath} type={`image/${(isHoldToLight ? hoverBackPaths.optimizedPath : backPaths.optimizedPath).match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png'}`} />
+        <img 
+          src={isHoldToLight ? hoverBackPaths.originalPath : backPaths.originalPath} 
+          data-lightbox-back={lightboxBackPaths.originalPath}
+          data-lightbox-back-webp={lightboxBackPaths.webpPath}
+          data-lightbox-back-optimized={lightboxBackPaths.optimizedPath}
+          alt={`${postcard.name} - Back`}
+          loading="lazy"
+          class="back-image"
+          decoding="async"
+          onerror={isHoldToLight ? `this.src='${backPaths.originalPath}';this.onerror=null;` : undefined}
+        />
+      </picture>
     </div>
   </div>
 </div>
@@ -168,6 +191,23 @@ if (isHoldToLight) {
         });
       }
       
+      // Helper function to get WebP and fallback paths from picture element
+      function getImagePathsFromPicture(img: HTMLImageElement | null): { webp: string; fallback: string; type: string } | null {
+        if (!img) return null;
+        const picture = img.closest('picture');
+        if (!picture) {
+          // Fallback: if no picture element, use img src
+          const src = img.getAttribute('src') || '';
+          return { webp: src, fallback: src, type: 'png' };
+        }
+        const webpSource = picture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
+        const fallbackSource = picture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
+        const webp = webpSource?.getAttribute('srcset') || img.getAttribute('src') || '';
+        const fallback = fallbackSource?.getAttribute('srcset') || img.getAttribute('src') || '';
+        const type = fallback.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png';
+        return { webp, fallback, type };
+      }
+      
       // Click handler for lightbox
       container.addEventListener('click', () => {
         const frontImgEl = container.querySelector('.front-image') as HTMLImageElement | null;
@@ -179,13 +219,21 @@ if (isHoldToLight) {
         const totalPostcards = parseInt(container.getAttribute('data-total') || '1');
         const categoryName = container.getAttribute('data-category') || '';
         
-        // Get paths from img src (already includes base path)
-        const frontPath = frontImgEl.getAttribute('src') || '';
-        // For Hold-to-light, use data-lightbox-back if available (the _001 back), otherwise use src
-        const backPath = backImgEl.getAttribute('data-lightbox-back') || backImgEl.getAttribute('src') || '';
-        const name = frontImgEl.getAttribute('alt')?.replace(' - Front', '') || '';
+        // Get paths from picture element or img src
+        const frontPaths = getImagePathsFromPicture(frontImgEl);
+        // For Hold-to-light, use data-lightbox-back if available (the _001 back)
+        const backImgForLightbox = backImgEl.getAttribute('data-lightbox-back') 
+          ? (() => {
+              const webpPath = backImgEl.getAttribute('data-lightbox-back-webp') || '';
+              const optimizedPath = backImgEl.getAttribute('data-lightbox-back-optimized') || '';
+              const fallbackPath = backImgEl.getAttribute('data-lightbox-back') || '';
+              return { webp: webpPath, optimized: optimizedPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
+            })()
+          : getImagePathsFromPicture(backImgEl);
         
-        if (!frontPath || !backPath) return;
+        if (!frontPaths || !backImgForLightbox) return;
+        
+        const name = frontImgEl.getAttribute('alt')?.replace(' - Front', '') || '';
         
         // Get or create lightbox
         let lightbox = document.getElementById('lightbox');
@@ -201,10 +249,18 @@ if (isHoldToLight) {
               <button class="lightbox-nav lightbox-next" id="lightbox-next" ${currentIndex >= totalPostcards - 1 ? 'style="display:none"' : ''}>&#8250;</button>
               <div class="lightbox-images">
                 <div class="lightbox-image-container">
-                  <img src="${frontPath}" alt="${name} - Front" class="lightbox-image" id="lightbox-front" />
+                  <picture>
+                    <source srcset="${frontPaths.webp}" type="image/webp" />
+                    <source srcset="${frontPaths.fallback}" type="image/${frontPaths.type}" />
+                    <img src="${frontPaths.fallback}" alt="${name} - Front" class="lightbox-image" id="lightbox-front" />
+                  </picture>
                 </div>
                 <div class="lightbox-image-container">
-                  <img src="${backPath}" alt="${name} - Back" class="lightbox-image" id="lightbox-back" />
+                  <picture>
+                    <source srcset="${backImgForLightbox.webp}" type="image/webp" />
+                    <source srcset="${backImgForLightbox.optimized || backImgForLightbox.fallback}" type="image/${backImgForLightbox.type}" />
+                    <img src="${backImgForLightbox.fallback}" alt="${name} - Back" class="lightbox-image" id="lightbox-back" />
+                  </picture>
                 </div>
               </div>
             </div>
@@ -251,15 +307,40 @@ if (isHoldToLight) {
             const backImg = targetContainer.querySelector('.back-image') as HTMLImageElement | null;
             if (!frontImg || !backImg) return;
             
-            const newFrontPath = frontImg.getAttribute('src') || '';
-            // For Hold-to-light, use data-lightbox-back if available (the _001 back), otherwise use src
-            const newBackPath = backImg.getAttribute('data-lightbox-back') || backImg.getAttribute('src') || '';
+            // Get paths from picture element or img src
+            const newFrontPaths = getImagePathsFromPicture(frontImg);
+            const newBackPaths = backImg.getAttribute('data-lightbox-back')
+              ? (() => {
+                  const webpPath = backImg.getAttribute('data-lightbox-back-webp') || '';
+                  const optimizedPath = backImg.getAttribute('data-lightbox-back-optimized') || '';
+                  const fallbackPath = backImg.getAttribute('data-lightbox-back') || '';
+                  return { webp: webpPath, optimized: optimizedPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
+                })()
+              : getImagePathsFromPicture(backImg);
             
-            // Update lightbox images
-            const lightboxFront = lb.querySelector('#lightbox-front') as HTMLImageElement | null;
-            const lightboxBack = lb.querySelector('#lightbox-back') as HTMLImageElement | null;
-            if (lightboxFront) lightboxFront.src = newFrontPath;
-            if (lightboxBack) lightboxBack.src = newBackPath;
+            if (!newFrontPaths || !newBackPaths) return;
+            
+            // Update lightbox images (picture elements)
+            const lightboxFrontPicture = lb.querySelector('#lightbox-front')?.closest('picture');
+            const lightboxBackPicture = lb.querySelector('#lightbox-back')?.closest('picture');
+            
+            if (lightboxFrontPicture) {
+              const webpSource = lightboxFrontPicture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
+              const fallbackSource = lightboxFrontPicture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
+              const img = lightboxFrontPicture.querySelector('img') as HTMLImageElement;
+              if (webpSource) webpSource.srcset = newFrontPaths.webp;
+              if (fallbackSource) fallbackSource.srcset = newFrontPaths.fallback;
+              if (img) img.src = newFrontPaths.fallback;
+            }
+            
+            if (lightboxBackPicture) {
+              const webpSource = lightboxBackPicture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
+              const fallbackSource = lightboxBackPicture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
+              const img = lightboxBackPicture.querySelector('img') as HTMLImageElement;
+              if (webpSource) webpSource.srcset = newBackPaths.webp;
+              if (fallbackSource) fallbackSource.srcset = newBackPaths.optimized || newBackPaths.fallback;
+              if (img) img.src = newBackPaths.fallback;
+            }
             
             // Update index
             lb.currentIndex = newIndex;
@@ -343,12 +424,40 @@ if (isHoldToLight) {
           const prevBtn = lightbox.querySelector('#lightbox-prev') as HTMLElement | null;
           const nextBtn = lightbox.querySelector('#lightbox-next') as HTMLElement | null;
           
-          // Get the correct back path (for Hold-to-light, use data-lightbox-back)
+          // Get the correct paths (for Hold-to-light, use data-lightbox-back)
+          const frontImgEl = container.querySelector('.front-image') as HTMLImageElement | null;
           const backImgEl = container.querySelector('.back-image') as HTMLImageElement | null;
-          const correctBackPath = backImgEl?.getAttribute('data-lightbox-back') || backPath;
+          const newFrontPaths = getImagePathsFromPicture(frontImgEl);
+          const newBackPaths = backImgEl?.getAttribute('data-lightbox-back')
+            ? (() => {
+                const webpPath = backImgEl.getAttribute('data-lightbox-back-webp') || '';
+                const optimizedPath = backImgEl.getAttribute('data-lightbox-back-optimized') || '';
+                const fallbackPath = backImgEl.getAttribute('data-lightbox-back') || '';
+                return { webp: webpPath, optimized: optimizedPath, fallback: fallbackPath, type: fallbackPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png' };
+              })()
+            : getImagePathsFromPicture(backImgEl);
           
-          if (frontImg) frontImg.src = frontPath;
-          if (backImg) backImg.src = correctBackPath;
+          if (newFrontPaths && newBackPaths) {
+            // Update front image
+            const frontPicture = frontImg?.closest('picture');
+            if (frontPicture) {
+              const webpSource = frontPicture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
+              const fallbackSource = frontPicture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
+              if (webpSource) webpSource.srcset = newFrontPaths.webp;
+              if (fallbackSource) fallbackSource.srcset = newFrontPaths.fallback;
+              if (frontImg) frontImg.src = newFrontPaths.fallback;
+            }
+            
+            // Update back image
+            const backPicture = backImg?.closest('picture');
+            if (backPicture) {
+              const webpSource = backPicture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
+              const fallbackSource = backPicture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
+              if (webpSource) webpSource.srcset = newBackPaths.webp;
+              if (fallbackSource) fallbackSource.srcset = newBackPaths.optimized || newBackPaths.fallback;
+              if (backImg) backImg.src = newBackPaths.fallback;
+            }
+          }
           if (prevBtn) prevBtn.style.display = currentIndex === 0 ? 'none' : 'flex';
           if (nextBtn) nextBtn.style.display = currentIndex >= totalPostcards - 1 ? 'none' : 'flex';
         }
@@ -461,15 +570,14 @@ if (isHoldToLight) {
     width: 100%;
     height: auto;
     display: block;
-    /* Respect EXIF orientation data - this tells browser to auto-rotate based on EXIF */
-    image-orientation: from-image;
+    /* Images are already auto-rotated by sharp during optimization */
+    /* No need for image-orientation since EXIF is removed after rotation */
   }
   
   .postcard-back img {
     width: 100%;
     height: auto;
     display: block;
-    /* Respect EXIF orientation */
-    image-orientation: from-image;
+    /* Images are already auto-rotated by sharp during optimization */
   }
 </style>

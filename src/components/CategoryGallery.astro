@@ -192,9 +192,19 @@ const initialVisibleCount = isHoldToLight ? 5 : 10;
     // Wait for all images to load, then apply positions
     const images = galleryGrid.querySelectorAll('.front-image');
     let loadedCount = 0;
+    let errorCount = 0;
     const totalImages = images.length;
+    
+    // Timeout fallback - apply masonry after 3 seconds even if not all images loaded
+    const timeoutId = setTimeout(() => {
+      if (loadedCount + errorCount < totalImages) {
+        console.log('Masonry timeout: applying layout with', loadedCount, 'loaded images');
+        applyMasonry();
+      }
+    }, 3000);
 
     const applyMasonry = () => {
+      clearTimeout(timeoutId);
       // Recalculate if window resized
       const newColumnWidth = getColumnWidth();
       if (newColumnWidth !== columnWidth) {
@@ -238,28 +248,48 @@ const initialVisibleCount = isHoldToLight ? 5 : 10;
 
     if (totalImages > 0) {
       images.forEach((img) => {
-        if ((img as HTMLImageElement).complete) {
+        const imgEl = img as HTMLImageElement;
+        // Handle both load and error events
+        const handleLoad = () => {
           loadedCount++;
+          if (loadedCount + errorCount === totalImages) {
+            setTimeout(applyMasonry, 50);
+          }
+        };
+        
+        const handleError = () => {
+          errorCount++;
+          // Still count as "processed" - apply masonry when all are done
+          if (loadedCount + errorCount === totalImages) {
+            setTimeout(applyMasonry, 50);
+          }
+        };
+        
+        if (imgEl.complete && imgEl.naturalWidth > 0) {
+          handleLoad();
+        } else if (imgEl.complete && imgEl.naturalWidth === 0) {
+          // Image failed to load
+          handleError();
         } else {
-          img.addEventListener('load', () => {
-            loadedCount++;
-            if (loadedCount === totalImages) {
-              setTimeout(applyMasonry, 50);
-            }
-          }, { once: true });
+          imgEl.addEventListener('load', handleLoad, { once: true });
+          imgEl.addEventListener('error', handleError, { once: true });
         }
       });
 
-      if (loadedCount === totalImages) {
+      if (loadedCount + errorCount === totalImages) {
         setTimeout(applyMasonry, 50);
       }
 
-      // Fallback
+      // Fallback - ensure masonry runs even if images fail
       setTimeout(() => {
         if (!galleryGrid.classList.contains('masonry-ready')) {
+          console.log('Masonry fallback: forcing layout');
           applyMasonry();
         }
       }, 3000);
+    } else {
+      // No images, still show the gallery
+      applyMasonry();
     }
 
     // Handle resize

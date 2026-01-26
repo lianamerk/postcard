@@ -20,10 +20,13 @@ interface Metadata {
   generatedAt: string;
 }
 
-function findCategoryFolders(rootDir: string): string[] {
-  const entries = fs.readdirSync(rootDir, { withFileTypes: true });
-  // Exclude known non-category folders
-  const excludeFolders = ['node_modules', '.git', 'dist', '.astro', 'public', 'src', '.github', '260113'];
+function findCategoryFolders(publicDir: string): string[] {
+  if (!fs.existsSync(publicDir)) {
+    return [];
+  }
+  const entries = fs.readdirSync(publicDir, { withFileTypes: true });
+  // Exclude known non-category folders and subdirectories (webp, optimized, thumbs)
+  const excludeFolders = ['webp', 'optimized', 'thumbs'];
   return entries
     .filter(entry => {
       if (!entry.isDirectory()) return false;
@@ -91,13 +94,13 @@ function findPostcardPairs(categoryPath: string): Postcard[] {
   return postcards.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function generateMetadata(rootDir: string): Metadata {
-  const categoryFolders = findCategoryFolders(rootDir);
+function generateMetadata(publicDir: string): Metadata {
+  const categoryFolders = findCategoryFolders(publicDir);
   const categories: Category[] = [];
   let totalPostcards = 0;
 
   for (const folder of categoryFolders) {
-    const categoryPath = path.join(rootDir, folder);
+    const categoryPath = path.join(publicDir, folder);
     const postcards = findPostcardPairs(categoryPath);
 
     if (postcards.length > 0) {
@@ -120,8 +123,10 @@ function generateMetadata(rootDir: string): Metadata {
 }
 
 // Main execution
+// Read from public/ directory - images should be placed directly in public/
 const rootDir = process.cwd();
-const metadata = generateMetadata(rootDir);
+const publicDir = path.join(rootDir, 'public');
+const metadata = generateMetadata(publicDir);
 const outputPath = path.join(rootDir, 'src/data/metadata.json');
 
 // Ensure data directory exists
