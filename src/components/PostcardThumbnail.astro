@@ -250,7 +250,7 @@ if (isHoldToLight) {
                 <div class="lightbox-image-container">
                   <picture>
                     <source srcset="${frontPaths.webp}" type="image/webp" />
-                    <source srcset="${frontPaths.fallback}" type="image/${frontPaths.type}" />
+                    <source srcset="${frontPaths.optimized || frontPaths.fallback}" type="image/${frontPaths.type}" />
                     <img src="${frontPaths.fallback}" alt="${name} - Front" class="lightbox-image" id="lightbox-front" />
                   </picture>
                 </div>
@@ -328,7 +328,7 @@ if (isHoldToLight) {
               const fallbackSource = lightboxFrontPicture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
               const img = lightboxFrontPicture.querySelector('img') as HTMLImageElement;
               if (webpSource) webpSource.srcset = newFrontPaths.webp;
-              if (fallbackSource) fallbackSource.srcset = newFrontPaths.fallback;
+              if (fallbackSource) fallbackSource.srcset = newFrontPaths.optimized || newFrontPaths.fallback;
               if (img) img.src = newFrontPaths.fallback;
             }
             
