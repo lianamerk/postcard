@@ -443,7 +443,7 @@ if (isHoldToLight) {
               const webpSource = frontPicture.querySelector('source[type="image/webp"]') as HTMLSourceElement;
               const fallbackSource = frontPicture.querySelector('source:not([type="image/webp"])') as HTMLSourceElement;
               if (webpSource) webpSource.srcset = newFrontPaths.webp;
-              if (fallbackSource) fallbackSource.srcset = newFrontPaths.fallback;
+              if (fallbackSource) fallbackSource.srcset = newFrontPaths.optimized || newFrontPaths.fallback;
               if (frontImg) frontImg.src = newFrontPaths.fallback;
             }
             
