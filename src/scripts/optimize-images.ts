@@ -92,28 +92,52 @@ async function optimizeImage(
 }
 
 async function processCategory(categoryFolder: string): Promise<void> {
-  const categoryPath = path.join(rootDir, 'public', categoryFolder);
+  // Check root directory first (where originals might be stored)
+  const rootCategoryPath = path.join(rootDir, categoryFolder);
+  const publicCategoryPath = path.join(rootDir, 'public', categoryFolder);
+  
+  // Use root folder if it exists and has images, otherwise use public/
+  let categoryPath: string;
+  let sourcePath: string;
+  
+  if (fs.existsSync(rootCategoryPath)) {
+    const rootFiles = fs.readdirSync(rootCategoryPath);
+    const rootImages = rootFiles.filter(file => /\.(png|jpg|jpeg)$/i.test(file));
+    if (rootImages.length > 0) {
+      categoryPath = rootCategoryPath;
+      sourcePath = rootCategoryPath;
+    } else {
+      categoryPath = publicCategoryPath;
+      sourcePath = publicCategoryPath;
+    }
+  } else {
+    categoryPath = publicCategoryPath;
+    sourcePath = publicCategoryPath;
+  }
   
   if (!fs.existsSync(categoryPath)) {
-    console.log(`Skipping ${categoryFolder} - folder not found in public/`);
+    console.log(`Skipping ${categoryFolder} - folder not found`);
     return;
   }
 
   const files = fs.readdirSync(categoryPath);
   // Process all images (including _001, _002 variants)
   const imageFiles = files.filter(file => 
-    /\.(png|jpg|jpeg)$/i.test(file)
+    /\.(png|jpg|jpeg)$/i.test(file) && !file.includes('/optimized/') && !file.includes('/webp/')
   );
 
   console.log(`\nProcessing ${categoryFolder} (${imageFiles.length} images)...`);
 
+  // Output always goes to public/{category}/webp/ and public/{category}/optimized/
+  const outputCategoryPath = path.join(rootDir, 'public', categoryFolder);
+  
   const promises = imageFiles.map(async (imageFile) => {
     const sourcePath = path.join(categoryPath, imageFile);
     const baseName = path.basename(imageFile, path.extname(imageFile));
     
-    // Create optimized versions in subdirectories
-    const webpPath = path.join(categoryPath, 'webp', `${baseName}.webp`);
-    const optimizedPath = path.join(categoryPath, 'optimized', imageFile);
+    // Create optimized versions in public/{category}/ subdirectories
+    const webpPath = path.join(outputCategoryPath, 'webp', `${baseName}.webp`);
+    const optimizedPath = path.join(outputCategoryPath, 'optimized', imageFile);
 
     await optimizeImage(sourcePath, webpPath, optimizedPath);
   });

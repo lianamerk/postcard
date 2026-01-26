@@ -24,15 +24,14 @@ const base = import.meta.env.BASE_URL;
 const basePath = base.endsWith('/') ? base.slice(0, -1) : base;
 
 // Helper function to generate WebP and optimized paths
-// Falls back to original if optimized versions don't exist
+// Uses optimized version as fallback (originals are not stored in public/)
 function getImagePaths(imageName: string, category: string) {
   const baseName = imageName.replace(/\.(png|jpg|jpeg|webp)$/i, '');
   const ext = imageName.match(/\.(png|jpg|jpeg|webp)$/i)?.[1] || 'png';
-  const originalPath = `${basePath}/${category}/${imageName}`;
   const webpPath = `${basePath}/${category}/webp/${baseName}.webp`;
   const optimizedPath = `${basePath}/${category}/optimized/${imageName}`;
-  // Use original as fallback if optimized doesn't exist
-  return { originalPath, webpPath, optimizedPath, fallbackPath: originalPath };
+  // Use optimized as fallback (originals removed to save space)
+  return { webpPath, optimizedPath, fallbackPath: optimizedPath };
 }
 
 const frontPaths = getImagePaths(postcard.front, category);
@@ -70,7 +69,7 @@ if (isHoldToLight) {
         <source srcset={frontPaths.webpPath} type="image/webp" />
         <source srcset={frontPaths.optimizedPath} type={`image/${frontPaths.optimizedPath.match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png'}`} />
         <img 
-          src={frontPaths.originalPath} 
+          src={frontPaths.fallbackPath} 
           alt={`${postcard.name} - Front`}
           loading="lazy"
           class="front-image"
@@ -84,15 +83,15 @@ if (isHoldToLight) {
         <source srcset={isHoldToLight ? hoverBackPaths.webpPath : backPaths.webpPath} type="image/webp" />
         <source srcset={isHoldToLight ? hoverBackPaths.optimizedPath : backPaths.optimizedPath} type={`image/${(isHoldToLight ? hoverBackPaths.optimizedPath : backPaths.optimizedPath).match(/\.(png|jpg|jpeg)$/i)?.[1] || 'png'}`} />
         <img 
-          src={isHoldToLight ? hoverBackPaths.originalPath : backPaths.originalPath} 
-          data-lightbox-back={lightboxBackPaths.originalPath}
+          src={isHoldToLight ? hoverBackPaths.fallbackPath : backPaths.fallbackPath} 
+          data-lightbox-back={lightboxBackPaths.fallbackPath}
           data-lightbox-back-webp={lightboxBackPaths.webpPath}
           data-lightbox-back-optimized={lightboxBackPaths.optimizedPath}
           alt={`${postcard.name} - Back`}
           loading="lazy"
           class="back-image"
           decoding="async"
-          onerror={isHoldToLight ? `this.src='${backPaths.originalPath}';this.onerror=null;` : undefined}
+          onerror={isHoldToLight ? `this.src='${backPaths.fallbackPath}';this.onerror=null;` : undefined}
         />
       </picture>
     </div>
